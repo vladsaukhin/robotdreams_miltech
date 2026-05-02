@@ -99,7 +99,8 @@
             "path": "/bin/bash",
             "overrideName": true
           }
-        }
+        },
+        "editor.formatOnSave": true
       }
     }
   }
