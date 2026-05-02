@@ -5,6 +5,7 @@
 #include <fstream>
 #include <format>
 #include <sstream>
+#include <cmath>
 
 namespace DataReader {
 
@@ -15,6 +16,11 @@ struct TicksInTime {
   int bl{};
   int br{};
 };
+
+std::ostream& operator<<(std::ostream& os, const TicksInTime& tick)
+{
+  return os << std::format("Tick({} {} {} {} {})", tick.timestamp, tick.fl, tick.fr, tick.bl, tick.br);
+}
 
 using TicksInTimeVector = std::vector<TicksInTime>;
 
@@ -70,14 +76,6 @@ void PrintTicks(const TicksInTimeVector& ticks)
 
 }  // namespace DataReader
 
-namespace Calculations {
-
-constexpr int32_t ticks_per_revolution = 1024;
-constexpr double wheel_radius_m = 0.3;
-constexpr double wheelbase_m = 1.0;
-
-}  // namespace Calculations
-
 int main(int argc, char** argv)
 {
   // The program expects exactly one argument: a path to telemetry samples.
@@ -89,6 +87,47 @@ int main(int argc, char** argv)
   DataReader::TicksInTimeVector ticks;
   if (!DataReader::ReadTicks(argv[1], ticks)) {
     return 1;
+  }
+
+  if (ticks.size() < 2) {
+    std::cerr << "Error: not enough data from input\n";
+    return 1;
+  }
+
+  constexpr double ticksPerRevolution = 1024.0;
+  constexpr double wheelRadius = 0.3;  // m
+  constexpr double wheelbase = 1.0;    // m
+
+  double x = 0.0;
+  double y = 0.0;
+  double theta = 0.0;
+
+  for (size_t i = 1; i < ticks.size(); ++i) {
+    const auto& prevTick = ticks[i - 1];
+    const auto& tick = ticks[i];
+    // std::cout << prevTick << std::endl << tick << std::endl;
+    const double d_left = (tick.fl - prevTick.fl + tick.bl - prevTick.bl) / 2.0;
+    const double d_right = (tick.fr - prevTick.fr + tick.br - prevTick.br) / 2.0;
+
+    // std::cout << std::format("time: {} d_left: {} d_right: {}\n", tick.timestamp, d_left, d_right);
+
+    const double distance_per_tick = 2 * M_PI * wheelRadius / ticksPerRevolution;
+
+    const double dL = d_left * distance_per_tick;
+    const double dR = d_right * distance_per_tick;
+
+    // std::cout << std::format("distance_per_tick = {} dL = {} dR = {}\n", distance_per_tick, dL, dR);
+
+    const double d = (dL + dR) / 2.0;
+    const double dtheta = (dR - dL) / wheelbase;
+
+    // std::cout << std::format("d = {} dtheta = {}\n", d, dtheta);
+    // std::cout << std::format("cos = {} sin = {}\n", cos(theta + dtheta / 2.0), sin(theta + dtheta / 2.0));
+    x += d * cos(theta + dtheta / 2.0);
+    y += d * sin(theta + dtheta / 2.0);
+    theta += dtheta;
+
+    std::cout << std::format("{} {:.2f} {:.2f} {:.2f}\n", tick.timestamp, x, y, theta);
   }
 
   return 0;
