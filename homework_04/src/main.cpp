@@ -1,4 +1,3 @@
-#include <cstdint>
 #include <iostream>
 #include <string_view>
 #include <vector>
@@ -60,7 +59,7 @@ bool ReadTicks(std::string_view path, TicksInTimeVector& ticks)
       return false;
     }
 
-    ticks.push_back({valuesInLine[0], valuesInLine[1], valuesInLine[2], valuesInLine[3], valuesInLine[4]});
+    ticks.emplace_back(valuesInLine[0], valuesInLine[1], valuesInLine[2], valuesInLine[3], valuesInLine[4]);
     valuesInLine.clear();
   }
 
@@ -75,6 +74,62 @@ void PrintTicks(const TicksInTimeVector& ticks)
 }
 
 }  // namespace DataReader
+
+namespace Calculations {
+
+struct OdometryInTime {
+  int timestamp{};
+  double x{};
+  double y{};
+  double theta{};
+};
+
+using OdometryInTimeVector = std::vector<OdometryInTime>;
+
+std::ostream& operator<<(std::ostream& os, const OdometryInTime& odometry)
+{
+  return os << std::format("{} {:.2f} {:.2f} {:.2f}", odometry.timestamp, odometry.x, odometry.y, odometry.theta);
+}
+
+// return steps just for future testing purposes
+OdometryInTimeVector CalculateOdometry(const DataReader::TicksInTimeVector& ticks)
+{
+  constexpr double ticksPerRevolution = 1024.0;
+  constexpr double wheelRadius = 0.3;  // m
+  constexpr double wheelbase = 1.0;    // m
+
+  double x = 0.0;
+  double y = 0.0;
+  double theta = 0.0;
+
+  OdometryInTimeVector odometry;
+  odometry.reserve(ticks.size());
+
+  for (size_t i = 1; i < ticks.size(); ++i) {
+    const auto& prevTick = ticks[i - 1];
+    const auto& tick = ticks[i];
+
+    const double d_left = (tick.fl - prevTick.fl + tick.bl - prevTick.bl) / 2.0;
+    const double d_right = (tick.fr - prevTick.fr + tick.br - prevTick.br) / 2.0;
+
+    const double distance_per_tick = 2 * M_PI * wheelRadius / ticksPerRevolution;
+
+    const double dL = d_left * distance_per_tick;
+    const double dR = d_right * distance_per_tick;
+
+    const double d = (dL + dR) / 2.0;
+    const double dtheta = (dR - dL) / wheelbase;
+
+    x += d * cos(theta + dtheta / 2.0);
+    y += d * sin(theta + dtheta / 2.0);
+    theta += dtheta;
+
+    odometry.emplace_back(tick.timestamp, x, y, theta);
+  }
+  return odometry;
+}
+
+}  // namespace Calculations
 
 int main(int argc, char** argv)
 {
@@ -94,40 +149,10 @@ int main(int argc, char** argv)
     return 1;
   }
 
-  constexpr double ticksPerRevolution = 1024.0;
-  constexpr double wheelRadius = 0.3;  // m
-  constexpr double wheelbase = 1.0;    // m
+  auto odometry = Calculations::CalculateOdometry(ticks);
 
-  double x = 0.0;
-  double y = 0.0;
-  double theta = 0.0;
-
-  for (size_t i = 1; i < ticks.size(); ++i) {
-    const auto& prevTick = ticks[i - 1];
-    const auto& tick = ticks[i];
-    // std::cout << prevTick << std::endl << tick << std::endl;
-    const double d_left = (tick.fl - prevTick.fl + tick.bl - prevTick.bl) / 2.0;
-    const double d_right = (tick.fr - prevTick.fr + tick.br - prevTick.br) / 2.0;
-
-    // std::cout << std::format("time: {} d_left: {} d_right: {}\n", tick.timestamp, d_left, d_right);
-
-    const double distance_per_tick = 2 * M_PI * wheelRadius / ticksPerRevolution;
-
-    const double dL = d_left * distance_per_tick;
-    const double dR = d_right * distance_per_tick;
-
-    // std::cout << std::format("distance_per_tick = {} dL = {} dR = {}\n", distance_per_tick, dL, dR);
-
-    const double d = (dL + dR) / 2.0;
-    const double dtheta = (dR - dL) / wheelbase;
-
-    // std::cout << std::format("d = {} dtheta = {}\n", d, dtheta);
-    // std::cout << std::format("cos = {} sin = {}\n", cos(theta + dtheta / 2.0), sin(theta + dtheta / 2.0));
-    x += d * cos(theta + dtheta / 2.0);
-    y += d * sin(theta + dtheta / 2.0);
-    theta += dtheta;
-
-    std::cout << std::format("{} {:.2f} {:.2f} {:.2f}\n", tick.timestamp, x, y, theta);
+  for (const auto& odometryInTime : odometry) {
+    std::cout << odometryInTime << std::endl;
   }
 
   return 0;
