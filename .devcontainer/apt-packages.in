@@ -32,3 +32,8 @@ cmake
 clang-format
 cmake-format
 ninja-build
+
+# Додаткові корисні бібліотеки
+libboost-all-dev
+nlohmann-json3-dev
+libgtest-dev
