@@ -152,8 +152,8 @@ private:
 };
 
 struct Coord {
-  float x{};
-  float y{};
+  double x{};
+  double y{};
 
   constexpr Coord& operator+=(const Coord& other) noexcept
   {
@@ -169,14 +169,14 @@ struct Coord {
     return *this;
   }
 
-  constexpr Coord& operator*=(float scalar) noexcept
+  constexpr Coord& operator*=(double scalar) noexcept
   {
     x *= scalar;
     y *= scalar;
     return *this;
   }
 
-  constexpr Coord& operator/=(float scalar) noexcept
+  constexpr Coord& operator/=(double scalar) noexcept
   {
     x /= scalar;
     y /= scalar;
@@ -186,11 +186,11 @@ struct Coord {
   constexpr auto operator<=>(const Coord&) const noexcept = default;
 
   // Length / normalization
-  float Length() const noexcept { return std::sqrt(x * x + y * y); }
+  double Length() const noexcept { return std::sqrt(x * x + y * y); }
 
   Coord Normalized() const noexcept
   {
-    float len = Length();
+    double len = Length();
     if (len == 0.0f)
       return {0.0f, 0.0f};
     return {x / len, y / len};
@@ -217,48 +217,48 @@ constexpr Coord operator-(Coord l, const Coord& r) noexcept
   return l;
 }
 
-constexpr Coord operator*(Coord l, float scalar) noexcept
+constexpr Coord operator*(Coord l, double scalar) noexcept
 {
   l *= scalar;
   return l;
 }
 
-constexpr Coord operator*(float scalar, Coord r) noexcept
+constexpr Coord operator*(double scalar, Coord r) noexcept
 {
   r *= scalar;
   return r;
 }
 
-constexpr Coord operator/(Coord l, float scalar) noexcept
+constexpr Coord operator/(Coord l, double scalar) noexcept
 {
   l /= scalar;
   return l;
 }
 
-float NormalizeAngle360(float angle)  // [0, 2π)
+double NormalizeAngle360(double angle)  // [0, 2π)
 {
-  float a = std::fmod(angle, 2.0f * M_PI);
+  double a = std::fmod(angle, 2.0f * M_PI);
   if (a < 0.0f) {
     a += 2.0f * M_PI;
   }
   return a;
 }
 
-float NormalizeAngle180(float angle)  // (-π, π]
+double NormalizeAngle180(double angle)  // (-π, π]
 {
-  float a = NormalizeAngle360(angle);
+  double a = NormalizeAngle360(angle);
   if (a > M_PI) {
     a -= 2.0f * M_PI;
   }
   return a;
 }
 
-float AngleDiff(float from, float to)
+double AngleDiff(double from, double to)
 {
   return NormalizeAngle180(to - from);
 }
 
-float GetDistance(const Coord& a, const Coord& b)
+double GetDistance(const Coord& a, const Coord& b)
 {
   return (b - a).Length();
 }
@@ -268,22 +268,22 @@ float GetDistance(const Coord& a, const Coord& b)
 namespace Params {
 
 struct AmmoParams {
-  float mass{};
-  float drag{};
-  float lift{};
+  double mass{};
+  double drag{};
+  double lift{};
 };
 
 struct DroneConfig {
-  Utils::Coord startPos;   // початкова позиція (x, y)
-  float altitude;          // висота
-  float initialDir;        // початковий напрямок (рад)
-  float attackSpeed;       // швидкість атаки (м/с)
-  float accelerationPath;  // шлях розгону (м)
-  float arrayTimeStep;     // крок часу масиву цілей
-  float simTimeStep;       // крок симуляції
-  float hitRadius;         // радіус влучення
-  float angularSpeed;      // кутова швидкість (рад/с)
-  float turnThreshold;     // поріг повороту (рад)
+  Utils::Coord startPos;    // початкова позиція (x, y)
+  double altitude;          // висота
+  double initialDir;        // початковий напрямок (рад)
+  double attackSpeed;       // швидкість атаки (м/с)
+  double accelerationPath;  // шлях розгону (м)
+  double arrayTimeStep;     // крок часу масиву цілей
+  double simTimeStep;       // крок симуляції
+  double hitRadius;         // радіус влучення
+  double angularSpeed;      // кутова швидкість (рад/с)
+  double turnThreshold;     // поріг повороту (рад)
 
   Utils::MyString ammoName{};  // обрані боєприпаси
   AmmoParams ammoParams{};
@@ -307,9 +307,9 @@ bool ReadAmmo(std::string_view dataFolderPath, const char* ammoName, AmmoParams&
     const size_t ammoCount = j.size();
     for (size_t i = 0; i < ammoCount; ++i) {
       if (std::strcmp(ammoName, j[i].at("name").get<std::string>().c_str()) == 0) {
-        ammo.mass = j[i].at("mass").get<float>();
-        ammo.drag = j[i].at("drag").get<float>();
-        ammo.lift = j[i].at("lift").get<float>();
+        ammo.mass = j[i].at("mass").get<double>();
+        ammo.drag = j[i].at("drag").get<double>();
+        ammo.lift = j[i].at("lift").get<double>();
         return true;
       }
     }
@@ -382,23 +382,23 @@ bool ReadSimulationParams(std::string_view dataFolderPath, DroneConfig& conf)
     const auto& drone = j.at("drone");
 
     const auto& pos = drone.at("position");
-    conf.startPos.x = pos.at("x").get<float>();
-    conf.startPos.y = pos.at("y").get<float>();
+    conf.startPos.x = pos.at("x").get<double>();
+    conf.startPos.y = pos.at("y").get<double>();
 
-    conf.altitude = drone.at("altitude").get<float>();
-    conf.initialDir = drone.at("initialDirection").get<float>();
-    conf.attackSpeed = drone.at("attackSpeed").get<float>();
-    conf.accelerationPath = drone.at("accelerationPath").get<float>();
-    conf.angularSpeed = drone.at("angularSpeed").get<float>();
-    conf.turnThreshold = drone.at("turnThreshold").get<float>();
+    conf.altitude = drone.at("altitude").get<double>();
+    conf.initialDir = drone.at("initialDirection").get<double>();
+    conf.attackSpeed = drone.at("attackSpeed").get<double>();
+    conf.accelerationPath = drone.at("accelerationPath").get<double>();
+    conf.angularSpeed = drone.at("angularSpeed").get<double>();
+    conf.turnThreshold = drone.at("turnThreshold").get<double>();
 
     conf.ammoName = Utils::MyString(j.at("ammo").get<std::string>().c_str());
 
     const auto& sim = j.at("simulation");
-    conf.simTimeStep = sim.at("timeStep").get<float>();
-    conf.hitRadius = sim.at("hitRadius").get<float>();
+    conf.simTimeStep = sim.at("timeStep").get<double>();
+    conf.hitRadius = sim.at("hitRadius").get<double>();
 
-    conf.arrayTimeStep = j.at("targetArrayTimeStep").get<float>();
+    conf.arrayTimeStep = j.at("targetArrayTimeStep").get<double>();
   }
   catch (const std::exception& e) {
     std::cerr << "Config error: " << e.what() << '\n';
@@ -478,8 +478,8 @@ bool LoadTargets(std::string_view dataFolderPath, TargetsInTime& targetsInTime)
           throw std::runtime_error("position must be object");
         }
 
-        const float x = position.at("x").get<float>();
-        const float y = position.at("y").get<float>();
+        const double x = position.at("x").get<double>();
+        const double y = position.at("y").get<double>();
 
         if (x < 0 || y < 0) {
           throw std::runtime_error("Coords must be non-negative");
@@ -517,64 +517,65 @@ void PrintTargets(const TargetsInTime& data)
 namespace Calculation {
 
 constexpr size_t MAX_STEPS{10'000};
-constexpr float gEps{1e-6f};
+constexpr double gEps{1e-6f};
 constexpr int UNDEFINED_TARGET_ID{-1};
 
 enum DroneState : uint8_t { STOPPED, ACCELERATING, DECELERATING, TURNING, MOVING };
 
 struct Drone {
   Utils::Coord position{};
-  float diraction{};
+  double diraction{};
 
   int currentTarget{UNDEFINED_TARGET_ID};
-  float targetDir{};
+  double targetDir{};
 
   DroneState state{STOPPED};
-  float speed{};
-  float turnRemaining{};
+  double speed{};
+  double turnRemaining{};
 };
 
 struct Target {
   int idx{UNDEFINED_TARGET_ID};
 
-  float totalTime{std::numeric_limits<float>::max()};
+  double totalTime{std::numeric_limits<double>::max()};
   Utils::Coord releasePoint{};
 
   Utils::Coord predictedPosition{};
+  Utils::Coord aimPoint{};
 };
 
 struct Ballistics {
-  float timeOfFlight{};
-  float horizontalFlightDistance{};
+  double timeOfFlight{};
+  double horizontalFlightDistance{};
 };
 
-bool GetTimeOfFlight(const Params::AmmoParams& ammo, float zd, float speed, float& timeOfFlight)
+bool GetTimeOfFlight(const Params::AmmoParams& ammo, double zd, double speed, double& timeOfFlight)
 {
-  constexpr float g{9.81f};
-  const float V0 = speed;
-  const float sq_m = std::pow(ammo.mass, 2);
-  const float sq_d = std::pow(ammo.drag, 2);
+  constexpr double g{9.81f};
+  const double V0 = speed;
+  const double sq_m = std::pow(ammo.mass, 2);
+  const double sq_d = std::pow(ammo.drag, 2);
 
-  const float a = ammo.drag * g * ammo.mass - 2 * sq_d * ammo.lift * V0;
-  const float b = -3 * g * sq_m + 3 * ammo.drag * ammo.lift * ammo.mass * V0;
-  const float c = 6 * sq_m * zd;
+  const double a = ammo.drag * g * ammo.mass - 2 * sq_d * ammo.lift * V0;
+  const double b = -3 * g * sq_m + 3 * ammo.drag * ammo.lift * ammo.mass * V0;
+  const double c = 6 * sq_m * zd;
 
-  const float p = -std::pow(b, 2) / (3 * std::pow(a, 2));
-  const float q = 2 * std::pow(b, 3) / (27 * std::pow(a, 3)) + c / a;
+  const double p = -std::pow(b, 2) / (3 * std::pow(a, 2));
+  const double q = 2 * std::pow(b, 3) / (27 * std::pow(a, 3)) + c / a;
 
   if (p >= 0) {
     std::cerr << "No real solution for time of flight" << std::endl;
     return false;
   }
 
-  const float fi_arg = 3 * q * std::sqrt(-3.0f / p) / (2 * p);
+  const double fi_arg = 3 * q * std::sqrt(-3.0f / p) / (2 * p);
   if (fi_arg < -1 || fi_arg > 1) {
     std::cerr << "Arccos arg has to be in the range (-1;1)" << std::endl;
     return false;
   }
 
-  const float fi = std::acos(fi_arg);
-  const float t = 2 * std::sqrt(-p / 3.0f) * std::cos((fi + 4 * M_PI) / 3.0f) - b / (3 * a);
+  const double fi = std::acos(fi_arg);
+  const double t = 2 * std::sqrt(-p / 3.0f) * std::cos((fi + 4 * M_PI) / 3.0f) - b / (3 * a);
 
   if (t < 0) {
     std::cerr << "timeOfFlight < 0" << std::endl;
@@ -585,34 +586,34 @@ bool GetTimeOfFlight(const Params::AmmoParams& ammo, float zd, float speed, floa
   return true;
 }
 
-bool GetHorizontalFlightDistance(const Params::AmmoParams& ammo, float timeOfFlight, float speed, float& horizontalFlightDistance)
+bool GetHorizontalFlightDistance(const Params::AmmoParams& ammo, double timeOfFlight, double speed, double& horizontalFlightDistance)
 {
-  constexpr float g{9.81f};
-  const float V0 = speed;
-  const float sq_m = std::pow(ammo.mass, 2);
-  const float sq_d = std::pow(ammo.drag, 2);
-  const float cu_d = std::pow(ammo.drag, 3);
-  const float sq_l = std::pow(ammo.lift, 2);
-  const float cu_l = std::pow(ammo.lift, 3);
+  constexpr double g{9.81f};
+  const double V0 = speed;
+  const double sq_m = std::pow(ammo.mass, 2);
+  const double sq_d = std::pow(ammo.drag, 2);
+  const double cu_d = std::pow(ammo.drag, 3);
+  const double sq_l = std::pow(ammo.lift, 2);
+  const double cu_l = std::pow(ammo.lift, 3);
 
-  const float h_part1 = V0 * timeOfFlight;
-  const float h_part2 = std::pow(timeOfFlight, 2) * ammo.drag * V0 / (2 * ammo.mass);
-  const float h_part3 = std::pow(timeOfFlight, 3) * (6 * ammo.drag * g * ammo.lift * ammo.mass - 6 * sq_d * (sq_l - 1) * V0) / (36 * sq_m);
+  const double h_part1 = V0 * timeOfFlight;
+  const double h_part2 = std::pow(timeOfFlight, 2) * ammo.drag * V0 / (2 * ammo.mass);
+  const double h_part3 = std::pow(timeOfFlight, 3) * (6 * ammo.drag * g * ammo.lift * ammo.mass - 6 * sq_d * (sq_l - 1) * V0) / (36 * sq_m);
 
   // clang-format off
-   const float h_part4 = std::pow(timeOfFlight, 4)
+   const double h_part4 = std::pow(timeOfFlight, 4)
       * (-6 * sq_d * g * ammo.lift * (1 + sq_l + sq_l * sq_l) * ammo.mass
          + 3 * cu_d * sq_l * (1 + sq_l) * V0
          + 6 * cu_d * sq_l * sq_l * (1 + sq_l) * V0)
       / (36 * std::pow(1 + sq_l, 2) * std::pow(ammo.mass, 3));
 
-   const float h_part5 = std::pow(timeOfFlight, 5)
+   const double h_part5 = std::pow(timeOfFlight, 5)
       * (3 * cu_d * g * cu_l * ammo.mass
          - 3 * sq_d * sq_d * sq_l * (1 + sq_l) * V0)
       / (36 * (1 + sq_l) * sq_m * sq_m);
   // clang-format on
 
-  const float h = h_part1 - h_part2 + h_part3 + h_part4 + h_part5;
+  const double h = h_part1 - h_part2 + h_part3 + h_part4 + h_part5;
 
   if (h < 0) {
     std::cerr << "horizontalFlightDistance < 0" << std::endl;
@@ -623,21 +624,22 @@ bool GetHorizontalFlightDistance(const Params::AmmoParams& ammo, float timeOfFli
   return true;
 }
 
-bool GetBallistics(const Params::DroneConfig& conf, float speed, Ballistics& ballistics)
+bool GetBallistics(const Params::DroneConfig& conf, Ballistics& ballistics)
 {
-  if (!Calculation::GetTimeOfFlight(conf.ammoParams, conf.altitude, speed, ballistics.timeOfFlight)) {
+  if (!Calculation::GetTimeOfFlight(conf.ammoParams, conf.altitude, conf.attackSpeed, ballistics.timeOfFlight)) {
     return false;
   }
 
-  return Calculation::GetHorizontalFlightDistance(conf.ammoParams, ballistics.timeOfFlight, speed, ballistics.horizontalFlightDistance);
+  return Calculation::GetHorizontalFlightDistance(
+    conf.ammoParams, ballistics.timeOfFlight, conf.attackSpeed, ballistics.horizontalFlightDistance);
 }
 
-float GetAcceleration(const Params::DroneConfig& conf)
+double GetAcceleration(const Params::DroneConfig& conf)
 {
   return std::pow(conf.attackSpeed, 2) / (2.0f * conf.accelerationPath);
 }
 
-float GetStopTime(const Drone& drone, const Params::DroneConfig& conf)
+double GetStopTime(const Drone& drone, const Params::DroneConfig& conf)
 {
   switch (drone.state) {
     case STOPPED:
@@ -656,25 +658,25 @@ float GetStopTime(const Drone& drone, const Params::DroneConfig& conf)
   }
 }
 
-Utils::Coord GetInterpolatedTarget(const TargetsParams::TargetsInTime& targetsInTime, size_t targetIdx, float arrayTimeStep, float time)
+Utils::Coord GetInterpolatedTarget(const TargetsParams::TargetsInTime& targetsInTime, size_t targetIdx, double arrayTimeStep, double time)
 {
-  const float samplePos = time / arrayTimeStep;
+  const double samplePos = time / arrayTimeStep;
   const int rawIdx = static_cast<int>(std::floor(samplePos));
   const int idx = rawIdx % 60;
   const int next = (idx + 1) % 60;
-  const float frac = samplePos - std::floor(samplePos);
+  const double frac = samplePos - std::floor(samplePos);
 
-  const float x = targetsInTime[targetIdx][idx].x + (targetsInTime[targetIdx][next].x - targetsInTime[targetIdx][idx].x) * frac;
-  const float y = targetsInTime[targetIdx][idx].y + (targetsInTime[targetIdx][next].y - targetsInTime[targetIdx][idx].y) * frac;
+  const double x = targetsInTime[targetIdx][idx].x + (targetsInTime[targetIdx][next].x - targetsInTime[targetIdx][idx].x) * frac;
+  const double y = targetsInTime[targetIdx][idx].y + (targetsInTime[targetIdx][next].y - targetsInTime[targetIdx][idx].y) * frac;
   return {x, y};
 }
 
 Utils::Coord GetTargetVelocity(size_t targetIdx,
                                const Params::DroneConfig& conf,
                                const TargetsParams::TargetsInTime& targetsInTime,
-                               float currentTime)
+                               double currentTime)
 {
-  const float dt = conf.simTimeStep;
+  const double dt = conf.simTimeStep;
   const auto p0 = GetInterpolatedTarget(targetsInTime, targetIdx, conf.arrayTimeStep, currentTime);
   const auto p1 = GetInterpolatedTarget(targetsInTime, targetIdx, conf.arrayTimeStep, currentTime + dt);
   return {(p1.x - p0.x) / dt, (p1.y - p0.y) / dt};
@@ -683,15 +685,40 @@ Utils::Coord GetTargetVelocity(size_t targetIdx,
 Utils::Coord GetFirePoint(const Utils::Coord& dronPos, const Utils::Coord& targetPos, const Calculation::Ballistics& ballistics)
 {
   const Utils::Coord delta = targetPos - dronPos;
-  const float distanceToTarget = delta.Length();
-  const float ratio = (distanceToTarget - ballistics.horizontalFlightDistance) / distanceToTarget;
+  const double distanceToTarget = delta.Length();
+  const double ratio = (distanceToTarget - ballistics.horizontalFlightDistance) / distanceToTarget;
 
   return dronPos + (targetPos - dronPos) * ratio;
 }
 
-float ComputeTravelTime(float distance, float acceleration, float droneSpeed)
+double ComputeTravelTime(double distance, double acceleration, double currentSpeed, double maxSpeed)
 {
-  return (-droneSpeed + std::sqrt(droneSpeed * droneSpeed + 2.0f * acceleration * distance)) / acceleration;
+  if (distance <= 0.0f) {
+    return 0.0f;
+  }
+
+  if (currentSpeed >= maxSpeed) {
+    return distance / maxSpeed;
+  }
+
+  const double distanceToMaxSpeed = (maxSpeed * maxSpeed - currentSpeed * currentSpeed) / (2.0f * acceleration);
+
+  if (distance <= distanceToMaxSpeed) {
+    return (-currentSpeed + std::sqrt(currentSpeed * currentSpeed + 2.0f * acceleration * distance)) / acceleration;
+  }
+
+  const double timeToMaxSpeed = (maxSpeed - currentSpeed) / acceleration;
+  const double cruiseDistance = distance - distanceToMaxSpeed;
+  const double cruiseTime = cruiseDistance / maxSpeed;
+
+  return timeToMaxSpeed + cruiseTime;
+}
+
+Utils::Coord GetAimPoint(const Drone& drone, const Ballistics& ballistics)
+{
+  Utils::Coord dir{std::cos(drone.diraction), std::sin(drone.diraction)};
+
+  return drone.position + dir * ballistics.horizontalFlightDistance;
 }
 
 Calculation::Target GetTarget(int targetIdx,
@@ -699,11 +726,11 @@ Calculation::Target GetTarget(int targetIdx,
                               const Calculation::Drone& drone,
                               const Calculation::Ballistics& ballistics,
                               const TargetsParams::TargetsInTime& targetsInTime,
-                              float currentTime)
+                              double currentTime)
 {
   Calculation::Target target{.idx = targetIdx};
 
-  const float acceleration = GetAcceleration(conf);
+  const double acceleration = GetAcceleration(conf);
   const auto targetVelocity = GetTargetVelocity(target.idx, conf, targetsInTime, currentTime);
 
   // get current position from targets file
@@ -712,7 +739,8 @@ Calculation::Target GetTarget(int targetIdx,
   // get fire point based on current target position
   const auto currentFirePoint = GetFirePoint(drone.position, currentPos, ballistics);
 
-  float totalTime = ComputeTravelTime((currentFirePoint - drone.position).Length(), acceleration, drone.speed) + ballistics.timeOfFlight;
+  double totalTime =
+    ComputeTravelTime((currentFirePoint - drone.position).Length(), acceleration, drone.speed, conf.attackSpeed) + ballistics.timeOfFlight;
 
   const auto predictedPos = currentPos + (targetVelocity * totalTime);
 
@@ -720,10 +748,13 @@ Calculation::Target GetTarget(int targetIdx,
 
   // get time and position based on predicted coordinates
 
-  target.totalTime = ComputeTravelTime((predictedPos - drone.position).Length(), acceleration, drone.speed) + ballistics.timeOfFlight;
+  target.totalTime = ComputeTravelTime((predictedFirePoint - drone.position).Length(), acceleration, drone.speed, conf.attackSpeed) +
+                     ballistics.timeOfFlight;
 
   target.releasePoint = predictedFirePoint;
   target.predictedPosition = predictedPos;
+
+  target.aimPoint = GetAimPoint(drone, ballistics);
 
   return target;
 }
@@ -732,13 +763,12 @@ bool SelectBestTarget(Calculation::Target& bestTarget,
                       const Params::DroneConfig& conf,
                       const Calculation::Drone& drone,
                       const TargetsParams::TargetsInTime& targetsInTime,
-                      float currentTime)
+                      double currentTime)
 {
   bool found = false;
 
   Calculation::Ballistics ballistics;
-  if (!Calculation::GetBallistics(conf, conf.attackSpeed, ballistics))  // drone.speed or params.attackSpeed?
-  {
+  if (!Calculation::GetBallistics(conf, ballistics)) {
     std::cerr << "Cannot calculate balistics.\n";
     return false;
   }
@@ -759,12 +789,12 @@ bool SelectBestTarget(Calculation::Target& bestTarget,
   return found;
 }
 
-float GetAccelerationTime(const Params::DroneConfig& conf)
+double GetAccelerationTime(const Params::DroneConfig& conf)
 {
   return 2.0f * conf.accelerationPath / conf.attackSpeed;
 }
 
-void ChangeDronePosition(Calculation::Drone& drone, float dt)
+void ChangeDronePosition(Calculation::Drone& drone, double dt)
 {
   const Utils::Coord positionToAdd = {std::cos(drone.diraction) * drone.speed * dt, std::sin(drone.diraction) * drone.speed * dt};
   drone.position += positionToAdd;
@@ -776,7 +806,7 @@ void AdjustDroneStateToTarget(Calculation::Drone& drone, const Calculation::Targ
   const auto targetDir = target.releasePoint - drone.position;
   drone.targetDir = Utils::NormalizeAngle180(std::atan2(targetDir.y, targetDir.x));
 
-  const float deltaAngle = std::fabs(Utils::AngleDiff(drone.diraction, drone.targetDir));
+  const double deltaAngle = std::fabs(Utils::AngleDiff(drone.diraction, drone.targetDir));
 
   if (deltaAngle > conf.turnThreshold) {
     if (drone.state == DroneState::MOVING || drone.state == DroneState::ACCELERATING) {
@@ -804,9 +834,9 @@ void AdjustDroneStateToTarget(Calculation::Drone& drone, const Calculation::Targ
 
 void MoveDrone(Calculation::Drone& drone, const Params::DroneConfig& conf)
 {
-  const float a = GetAcceleration(conf);
+  const double a = GetAcceleration(conf);
 
-  const float dt = conf.simTimeStep;
+  const double dt = conf.simTimeStep;
 
   switch (drone.state) {
     case DroneState::STOPPED: {
@@ -838,10 +868,10 @@ void MoveDrone(Calculation::Drone& drone, const Params::DroneConfig& conf)
     case DroneState::TURNING: {
       drone.speed = 0.0f;
 
-      const float deltaAngle = Utils::AngleDiff(drone.diraction, drone.targetDir);
-      const float deltaAngleAbs = std::fabs(deltaAngle);
+      const double deltaAngle = Utils::AngleDiff(drone.diraction, drone.targetDir);
+      const double deltaAngleAbs = std::fabs(deltaAngle);
 
-      const float maxTurn = conf.angularSpeed * dt;
+      const double maxTurn = conf.angularSpeed * dt;
 
       if (deltaAngleAbs <= maxTurn + gEps) {
         drone.diraction = drone.targetDir;
@@ -849,7 +879,7 @@ void MoveDrone(Calculation::Drone& drone, const Params::DroneConfig& conf)
         drone.state = ACCELERATING;
       }
       else {
-        const float turnStep = (deltaAngle > 0.0f ? maxTurn : -maxTurn);
+        const double turnStep = (deltaAngle > 0.0f ? maxTurn : -maxTurn);
         drone.diraction = Utils::NormalizeAngle180(drone.diraction + turnStep);
         drone.turnRemaining = (deltaAngleAbs - maxTurn) / conf.angularSpeed;
       }
@@ -868,12 +898,12 @@ namespace LogUtils {
 
 struct SimStep {
   Utils::Coord pos;               // позиція дрона
-  float direction;                // напрямок (рад)
+  double direction;               // напрямок (рад)
   Calculation::DroneState state;  // стан автомата (0-4)
   int targetIdx;                  // індекс поточної цілі
   Utils::Coord dropPoint;         // точка скиду (куди летить дрон)
-  // Utils::Coord aimPoint;      // куди впаде бомба (якщо скинути зараз) ? навіщо це рахувати?
-  Utils::Coord predictedTarget;  // прогнозована позиція цілі
+  Utils::Coord aimPoint;          // куди впаде бомба (якщо скинути зараз)
+  Utils::Coord predictedTarget;   // прогнозована позиція цілі
 };
 
 using SimSteps = Utils::MyArray<SimStep>;
@@ -886,6 +916,7 @@ void RecordStep(SimSteps& simSteps, int idx, const Calculation::Drone& drone, co
   simSteps[idx].targetIdx = drone.currentTarget;
 
   simSteps[idx].dropPoint = target.releasePoint;
+  simSteps[idx].aimPoint = target.aimPoint;
   simSteps[idx].predictedTarget = target.predictedPosition;
 }
 
@@ -914,10 +945,7 @@ bool WriteSimLog(std::string_view dataFolderPath, const SimSteps& log, size_t la
       step["state"] = static_cast<int>(logStep.state);
       step["targetIndex"] = logStep.targetIdx;
       step["dropPoint"] = {{"x", logStep.dropPoint.x}, {"y", logStep.dropPoint.y}};
-      // step["aimPoint"] = {
-      //    {"x", logStep.aimPoint.x},
-      //    {"y", logStep.aimPoint.y}
-      // };
+      step["aimPoint"] = {{"x", logStep.aimPoint.x}, {"y", logStep.aimPoint.y}};
       step["predictedTarget"] = {{"x", logStep.predictedTarget.x}, {"y", logStep.predictedTarget.y}};
       out["steps"].push_back(std::move(step));
     }
@@ -959,7 +987,7 @@ int main(int argc, char** argv)
   };
 
   size_t step{0};
-  float currentTime{};
+  double currentTime{};
 
   while (step < Calculation::MAX_STEPS) {
     Calculation::Target bestTarget{};
