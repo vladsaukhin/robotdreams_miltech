@@ -289,9 +289,9 @@ struct DroneConfig {
   AmmoParams ammoParams{};
 };
 
-bool ReadAmmo(const char* ammoName, AmmoParams& ammo)
+bool ReadAmmo(std::string_view dataFolderPath, const char* ammoName, AmmoParams& ammo)
 {
-  std::ifstream input("ammo.json");
+  std::ifstream input(std::string(dataFolderPath) + "/ammo.json");
   if (!input) {
     std::cerr << "Can't open ammo.json" << std::endl;
     return false;
@@ -364,9 +364,9 @@ bool ValidateConfig(const DroneConfig& conf)
   return isValidResult;
 }
 
-bool ReadSimulationParams(DroneConfig& conf)
+bool ReadSimulationParams(std::string_view dataFolderPath, DroneConfig& conf)
 {
-  std::ifstream input("config.json");
+  std::ifstream input(std::string(dataFolderPath) + "/config.json");
   if (!input) {
     std::cerr << "Can't open config.json" << std::endl;
     return false;
@@ -405,7 +405,7 @@ bool ReadSimulationParams(DroneConfig& conf)
     return false;
   }
 
-  if (!ReadAmmo(conf.ammoName.CStr(), conf.ammoParams)) {
+  if (!ReadAmmo(dataFolderPath, conf.ammoName.CStr(), conf.ammoParams)) {
     return false;
   }
 
@@ -419,9 +419,9 @@ namespace TargetsParams {
 using TargetsInTime = Utils::MyArray<Utils::ListOfCoords>;
 
 // allocate memory inside
-bool LoadTargets(TargetsInTime& targetsInTime)
+bool LoadTargets(std::string_view dataFolderPath, TargetsInTime& targetsInTime)
 {
-  std::ifstream input("targets.json");
+  std::ifstream input(std::string(dataFolderPath) + "/targets.json");
   if (!input) {
     std::cerr << "Can't open targets.json" << std::endl;
     return false;
@@ -889,14 +889,14 @@ void RecordStep(SimSteps& simSteps, int idx, const Calculation::Drone& drone, co
   simSteps[idx].predictedTarget = target.predictedPosition;
 }
 
-bool WriteSimLog(const SimSteps& log, size_t lastStepIdx)
+bool WriteSimLog(std::string_view dataFolderPath, const SimSteps& log, size_t lastStepIdx)
 {
   if (lastStepIdx > log.Size()) {
     std::cerr << "lastStepIdx is greater than log size.\n";
     return false;
   }
 
-  std::ofstream output("simulation.json");
+  std::ofstream output(std::string(dataFolderPath) + "/simulation.json");
   if (!output) {
     std::cerr << "Cannot open simulation.json file for writing.\n";
     return false;
@@ -934,13 +934,19 @@ bool WriteSimLog(const SimSteps& log, size_t lastStepIdx)
 
 }  // namespace LogUtils
 
-int main()
+int main(int argc, char** argv)
 {
+  // The program expects exactly one argument: a path to data folder
+  if (argc != 2) {
+    std::cerr << "can't start without path to data folder\n";
+    return 1;
+  }
+
   Params::DroneConfig conf;
 
   TargetsParams::TargetsInTime targetInTime;
 
-  if (!Params::ReadSimulationParams(conf) || !TargetsParams::LoadTargets(targetInTime)) {
+  if (!Params::ReadSimulationParams(argv[1], conf) || !TargetsParams::LoadTargets(argv[1], targetInTime)) {
     return 1;
   }
 
@@ -983,7 +989,7 @@ int main()
     return 1;
   }
 
-  if (!LogUtils::WriteSimLog(log, step)) {
+  if (!LogUtils::WriteSimLog(argv[1], log, step)) {
     return 1;
   }
 
