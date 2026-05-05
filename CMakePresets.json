@@ -30,7 +30,7 @@
     {
       "name": "release",
       "displayName": "Release",
-      "description": "Release build для занять блоку 2: оптимізована версія з виключеними символами.",
+      "description": "Release build для занять блоку 2: оптимізована версія.",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/release",
       "cacheVariables": {
