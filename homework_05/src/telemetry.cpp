@@ -281,6 +281,7 @@ Summary summarize(const Frame frames[], int frame_count)
   }
 
   summary.frames_total = frame_count;
+  summary.frames_valid = frame_count;
   summary.voltage_min = frames[0].voltage_v;
   summary.voltage_max = frames[0].voltage_v;
   summary.low_voltage_frames = 0;
@@ -312,6 +313,7 @@ Summary summarize(const Frame frames[], int frame_count)
 void print_summary(const Summary& summary)
 {
   std::cout << "frames_total " << summary.frames_total << '\n';
+  std::cout << "frames_valid " << summary.frames_valid << '\n';
   std::cout << "voltage_min " << summary.voltage_min << '\n';
   std::cout << "voltage_max " << summary.voltage_max << '\n';
   std::cout << "temperature_avg " << summary.temperature_avg << '\n';

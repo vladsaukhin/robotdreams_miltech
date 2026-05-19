@@ -17,6 +17,7 @@ struct Frame {
 // Aggregated values printed by the executable.
 struct Summary {
   int frames_total{};
+  int frames_valid{};
   double voltage_min{};
   double voltage_max{};
   double temperature_avg{};
