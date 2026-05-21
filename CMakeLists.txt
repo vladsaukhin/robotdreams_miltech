@@ -14,10 +14,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # що й реальна CMake-збірка.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Вмикаємо 3rd-party & common code
+add_subdirectory(deps)
+
+# Вмикаємо тестування, щоб можна було запускати тести з кожної homework_* директорії через ctest.
+enable_testing()
+
 # all homeworks
 add_subdirectory(homework_03)
 add_subdirectory(homework_04)
 add_subdirectory(homework_05)
+add_subdirectory(homework_06)
 
 # Demo-код для заняття 2.4: локальне і віддалене відлагодження через GDB.
 add_subdirectory(demos/lesson_2_4/debug_probe)

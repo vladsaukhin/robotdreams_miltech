@@ -37,3 +37,4 @@ ninja-build
 libboost-all-dev
 nlohmann-json3-dev
 libgtest-dev
+libgmock-dev
