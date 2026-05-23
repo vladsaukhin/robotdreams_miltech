@@ -10,30 +10,30 @@ int main(int argc, char** argv)
     return 1;
   }
 
-  auto inputParamsOpt = ParseInputParams(argv[1]);
-  if (!inputParamsOpt) {
+  auto input_params_opt = ParseInputParams(argv[1]);
+  if (!input_params_opt) {
     return 1;
   }
 
-  auto ammoParamsOpt = GetAmmoParams(inputParamsOpt->ammo_name);
-  if (!ammoParamsOpt) {
-    std::cerr << "Unknown ammo type: " << inputParamsOpt->ammo_name << "\n";
+  auto ammo_params_opt = GetAmmoParams(input_params_opt->ammo_name);
+  if (!ammo_params_opt) {
+    std::cerr << "Unknown ammo type: " << input_params_opt->ammo_name << "\n";
     return 1;
   }
 
-  auto timeOfFlightOpt = GetTimeOfFlight(*ammoParamsOpt, inputParamsOpt->altitude, inputParamsOpt->attackSpeed);
-  if (!timeOfFlightOpt) {
+  auto time_of_flight_opt = GetTimeOfFlight(*ammo_params_opt, input_params_opt->altitude, input_params_opt->attackSpeed);
+  if (!time_of_flight_opt) {
     std::cerr << "Failed to calculate time of flight.\n";
     return 1;
   }
 
-  auto horizontalFlightDistanceOpt = GetHorizontalFlightDistance(*ammoParamsOpt, inputParamsOpt->attackSpeed, *timeOfFlightOpt);
-  if (!horizontalFlightDistanceOpt) {
+  auto horizontal_flight_distance_opt = GetHorizontalFlightDistance(*ammo_params_opt, input_params_opt->attackSpeed, *time_of_flight_opt);
+  if (!horizontal_flight_distance_opt) {
     std::cerr << "Failed to calculate horizontal flight distance.\n";
     return 1;
   }
 
-  auto balisticsSolution = GetBallistics(*inputParamsOpt, *timeOfFlightOpt, *horizontalFlightDistanceOpt);
+  auto balistics_solution = GetBallistics(*input_params_opt, *time_of_flight_opt, *horizontal_flight_distance_opt);
 
   // save output points
   {
@@ -43,11 +43,11 @@ int main(int argc, char** argv)
       return 1;
     }
 
-    if (balisticsSolution.maneuverPoint) {
-      output << balisticsSolution.maneuverPoint->x << ' ' << balisticsSolution.maneuverPoint->y << '\n';
+    if (balistics_solution.maneuverPoint) {
+      output << balistics_solution.maneuverPoint->x << ' ' << balistics_solution.maneuverPoint->y << '\n';
     }
 
-    output << balisticsSolution.firePoint.x << ' ' << balisticsSolution.firePoint.y << '\n';
+    output << balistics_solution.firePoint.x << ' ' << balistics_solution.firePoint.y << '\n';
   }
 
   return 0;

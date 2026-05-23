@@ -67,7 +67,7 @@ struct Coord {
 
   std::string ToString() const { return std::format("({:.2f}, {:.2f})", x, y); }
 
-  bool IsValid() const { return std::isfinite(x) && std::isfinite(y) && x >= 0.0f && y >= 0.0f; }
+  [[nodiscard]] bool IsValid() const { return std::isfinite(x) && std::isfinite(y) && x >= 0.0f && y >= 0.0f; }
 };
 
 using ListOfCoords = std::vector<Coord>;
