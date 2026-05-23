@@ -26,13 +26,13 @@ std::optional<double> GetTimeOfFlight(const AmmoParams& ammo, double zd, double 
     return std::nullopt;
   }
 
-  const double fi_arg = 3 * q * std::sqrt(-3.0f / p) / (2 * p);
+  const double fi_arg = 3 * q * std::sqrt(-3.0 / p) / (2 * p);
   if (fi_arg < -1 || fi_arg > 1) {
     return std::nullopt;
   }
 
   const double fi = std::acos(fi_arg);
-  const double t = 2 * std::sqrt(-p / 3.0f) * std::cos((fi + 4 * M_PI) / 3.0f) - b / (3 * a);
+  const double t = 2 * std::sqrt(-p / 3.0) * std::cos((fi + 4 * M_PI) / 3.0) - b / (3 * a);
 
   if (t < 0) {
     return std::nullopt;
@@ -82,7 +82,7 @@ BallisticsSolution GetBallistics(const InputParams& params, double timeOfFlight,
   Coord maneuverPoint = params.position;
 
   if (horizontalFlightDistance + params.accelerationPath > distanceToTarget) {
-    if (std::fabs(distanceToTarget) < 1e-6f) {
+    if (std::fabs(distanceToTarget) < 1e-6) {
       distanceToTarget = horizontalFlightDistance + params.accelerationPath;
       maneuverPoint = params.target - distanceToTarget;
     }

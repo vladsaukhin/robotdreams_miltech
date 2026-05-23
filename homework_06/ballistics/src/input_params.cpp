@@ -6,11 +6,11 @@
 
 namespace {
 
-constexpr AmmoParams VOG17{"VOG-17", 0.35f, 0.07f, 0.0f};
-constexpr AmmoParams M67{"M67", 0.6f, 0.1f, 0.0f};
-constexpr AmmoParams RKG3{"RKG-3", 1.2f, 0.1f, 0.0f};
-constexpr AmmoParams GLIDING_VOG{"GLIDING-VOG", 0.45f, 0.1f, 1.0f};
-constexpr AmmoParams GLIDING_RKG{"GLIDING-RKG", 1.4f, 0.1f, 1.0f};
+constexpr AmmoParams VOG17{"VOG-17", 0.35, 0.07, 0.0};
+constexpr AmmoParams M67{"M67", 0.6, 0.1, 0.0};
+constexpr AmmoParams RKG3{"RKG-3", 1.2, 0.1, 0.0};
+constexpr AmmoParams GLIDING_VOG{"GLIDING-VOG", 0.45, 0.1, 1.0};
+constexpr AmmoParams GLIDING_RKG{"GLIDING-RKG", 1.4, 0.1, 1.0};
 
 constexpr std::array g_AmmoTable{VOG17, M67, RKG3, GLIDING_VOG, GLIDING_RKG};
 
@@ -18,16 +18,16 @@ constexpr size_t MAX_AMMO_NAME_SIZE{20};
 
 bool validateInputParams(const InputParams& params)
 {
-  if (!params.position.IsValid() || params.altitude < 0.0f) {
+  if (!params.position.IsValid() || params.altitude < 0.0) {
     return false;
   }
   if (!params.target.IsValid()) {
     return false;
   }
-  if (params.attackSpeed <= 0.0f) {
+  if (params.attackSpeed <= 0.0) {
     return false;
   }
-  if (params.accelerationPath < 0.0f) {
+  if (params.accelerationPath < 0.0) {
     return false;
   }
   if (params.ammo_name.empty() || params.ammo_name.size() > MAX_AMMO_NAME_SIZE) {
