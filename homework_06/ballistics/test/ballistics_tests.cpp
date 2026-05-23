@@ -44,23 +44,40 @@ void ballisticsSolutionScenario(const InputParams& params,
 
 TEST(Ballistics, GetTimeOfFlightTest)
 {
-  const AmmoParams ammo{"TestAmmo", 0.5f, 0.1f, 0.0f};
-  const double altitude = 100.0f;
-  const double speed = 300.0f;
+  constexpr AmmoParams ammo{"TestAmmo", 0.5, 0.1, 0.0};
+  constexpr double altitude = 100.0;
+  constexpr double speed = 300.0;
 
   auto timeOfFlightOpt = GetTimeOfFlight(ammo, altitude, speed);
+  ASSERT_TRUE(timeOfFlightOpt) << "Expected valid time of flight";
+  ASSERT_GT(*timeOfFlightOpt, 0.0) << "Expected positive time of flight";
+}
 
-  EXPECT_TRUE(timeOfFlightOpt) << "Expected valid time of flight";
-  if (timeOfFlightOpt) {
-    EXPECT_GT(*timeOfFlightOpt, 0.0f) << "Expected positive time of flight";
-  }
+TEST(Ballistics, GetTimeOfFlightNegativeMassTest)
+{
+  constexpr AmmoParams ammo{"TestAmmo", -0.5, 0.1, 0.0};
+  constexpr double altitude = 100.0;
+  constexpr double speed = 300.0;
+
+  const auto timeOfFlightOpt = GetTimeOfFlight(ammo, altitude, speed);
+  ASSERT_FALSE(timeOfFlightOpt) << "Expected invalid time of flight";
+}
+
+TEST(Ballistics, GetTimeOfFlightZeroAmmoTest)
+{
+  constexpr AmmoParams ammo{"TestAmmo", 0.0, 0.0, 0.0};
+  constexpr double altitude = 10.0;
+  constexpr double speed = 10.0;
+
+  const auto timeOfFlightOpt = GetTimeOfFlight(ammo, altitude, speed);
+  ASSERT_FALSE(timeOfFlightOpt) << "Expected invalid time of flight";
 }
 
 TEST(Ballistics, GetHorizontalFlightDistanceTest)
 {
-  const AmmoParams ammo{"TestAmmo", 0.5f, 0.1f, 0.0f};
-  const double timeOfFlight = 2.0f;
-  const double speed = 300.0f;
+  constexpr AmmoParams ammo{"TestAmmo", 0.5, 0.1, 0.0};
+  constexpr double timeOfFlight = 2.0;
+  constexpr double speed = 300.0;
 
   auto horizontalFlightDistanceOpt = GetHorizontalFlightDistance(ammo, timeOfFlight, speed);
 

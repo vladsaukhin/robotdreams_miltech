@@ -1,11 +1,10 @@
 #include "ballistics/ballistics.h"
 
 #include <cmath>
-#include "ballistics/coord.h"
 
 namespace {
 
-constexpr double g_GravitationalConstant{9.81f};
+constexpr double g_GravitationalConstant{9.81};
 
 }  // namespace
 
@@ -18,6 +17,10 @@ std::optional<double> GetTimeOfFlight(const AmmoParams& ammo, double zd, double 
   const double a = ammo.drag * g_GravitationalConstant * ammo.mass - 2 * sq_d * ammo.lift * V0;
   const double b = -3 * g_GravitationalConstant * sq_m + 3 * ammo.drag * ammo.lift * ammo.mass * V0;
   const double c = 6 * sq_m * zd;
+
+  if (a == 0.0) {
+    return std::nullopt;
+  }
 
   const double p = -std::pow(b, 2) / (3 * std::pow(a, 2));
   const double q = 2 * std::pow(b, 3) / (27 * std::pow(a, 3)) + c / a;
