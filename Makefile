@@ -33,3 +33,5 @@ quality: format lint test
 
 clean:
 	rm -rf build
+
+rebuild: clean build
