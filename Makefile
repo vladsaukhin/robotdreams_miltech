@@ -1,13 +1,12 @@
 BUILD_DIR := build/debug
-JOBS := 8
 
 .PHONY: configure build format lint test quality clean
 
 configure:
-	cmake -B $(BUILD_DIR) -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+	cmake --preset debug
 
 build: configure
-	cmake --build $(BUILD_DIR) --parallel $(JOBS)
+	cmake --build --preset debug
 
 # extend here if you want to include another HW sub project
 PROJECTS := homework_06
