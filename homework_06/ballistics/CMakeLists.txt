@@ -6,4 +6,8 @@ target_sources(
 
 target_include_directories(ballistics PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-add_subdirectory(test)
+if(NOT CMAKE_CROSSCOMPILING)
+
+    add_subdirectory(test)
+
+endif()
