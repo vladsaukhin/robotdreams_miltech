@@ -1,5 +1,6 @@
 #include <cmath>
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <exception>
 #include <fstream>
@@ -165,16 +166,18 @@ public:
   virtual const AmmoParams& GetAmmoParams() const = 0;
 };
 
+using IConfigLoaderPtr = std::unique_ptr<IConfigLoader>;
+
 class JsonConfigLoader : public IConfigLoader {
 public:
   JsonConfigLoader() = default;
 
+  JsonConfigLoader(JsonConfigLoader&&) = default;
+  JsonConfigLoader& operator=(JsonConfigLoader&&) = default;
+
 private:
   JsonConfigLoader(const JsonConfigLoader&) = delete;
   JsonConfigLoader& operator=(const JsonConfigLoader&) = delete;
-
-  JsonConfigLoader(JsonConfigLoader&&) = delete;
-  JsonConfigLoader& operator=(JsonConfigLoader&&) = delete;
 
 public:
   bool Load(std::string_view dataFolderPath) override { return readConfig(dataFolderPath) && readAmmo(dataFolderPath) && validateConfig(); }
@@ -309,11 +312,11 @@ private:
 
 enum class ConfigLoaderType { JSON_FILE };
 
-IConfigLoader* CreateLoader(ConfigLoaderType type)
+IConfigLoaderPtr CreateLoader(ConfigLoaderType type)
 {
   switch (type) {
     case ConfigLoaderType::JSON_FILE:
-      return new JsonConfigLoader();
+      return std::make_unique<JsonConfigLoader>();
     default:
       throw std::out_of_range(std::format("CreateLoader factory cannot create a Loader for type {}",
                                           static_cast<std::underlying_type_t<ConfigLoaderType>>(type)));
@@ -338,16 +341,18 @@ public:
   virtual const Utils::Coord& GetTargetCoordByTime(size_t targetIdx, size_t timeIdx) const = 0;
 };
 
+using ITargetLoaderPtr = std::unique_ptr<ITargetLoader>;
+
 class JsonTargetLoader : public ITargetLoader {
 public:
   JsonTargetLoader() = default;
 
+  JsonTargetLoader(JsonTargetLoader&&) = default;
+  JsonTargetLoader& operator=(JsonTargetLoader&&) = default;
+
 private:
   JsonTargetLoader(const JsonTargetLoader&) = delete;
   JsonTargetLoader& operator=(const JsonTargetLoader&) = delete;
-
-  JsonTargetLoader(JsonTargetLoader&&) = delete;
-  JsonTargetLoader& operator=(JsonTargetLoader&&) = delete;
 
 public:
   bool Load(std::string_view dataFolderPath) override { return readTargets(dataFolderPath); }
@@ -451,11 +456,11 @@ private:
 
 enum class TargetLoaderType { JSON_FILE };
 
-ITargetLoader* CreateTargetLoader(TargetLoaderType type)
+ITargetLoaderPtr CreateTargetLoader(TargetLoaderType type)
 {
   switch (type) {
     case TargetLoaderType::JSON_FILE:
-      return new JsonTargetLoader();
+      return std::make_unique<JsonTargetLoader>();
     default:
       throw std::out_of_range(std::format("CreateTargetLoader factory cannot create a Loader for type {}",
                                           static_cast<std::underlying_type_t<TargetLoaderType>>(type)));
@@ -511,16 +516,18 @@ public:
   virtual Target Solve(const BallisticsSolverContext&) = 0;
 };
 
+using IBallisticSolverPtr = std::unique_ptr<IBallisticSolver>;
+
 class AnalyticalSolver : public IBallisticSolver {
 public:
   AnalyticalSolver() = default;
 
+  AnalyticalSolver(AnalyticalSolver&&) = default;
+  AnalyticalSolver& operator=(AnalyticalSolver&&) = default;
+
 private:
   AnalyticalSolver(const AnalyticalSolver&) = delete;
   AnalyticalSolver& operator=(const AnalyticalSolver&) = delete;
-
-  AnalyticalSolver(AnalyticalSolver&&) = delete;
-  AnalyticalSolver& operator=(AnalyticalSolver&&) = delete;
 
 public:
   Target Solve(const BallisticsSolverContext& context) override
@@ -729,16 +736,18 @@ public:
   virtual void Reset() = 0;
 };
 
+using ILoggerPtr = std::unique_ptr<ILogger>;
+
 class JsonLogger : public ILogger {
 public:
   JsonLogger() = default;
 
+  JsonLogger(JsonLogger&&) = default;
+  JsonLogger& operator=(JsonLogger&&) = default;
+
 private:
   JsonLogger(const JsonLogger&) = delete;
   JsonLogger& operator=(const JsonLogger&) = delete;
-
-  JsonLogger(JsonLogger&&) = delete;
-  JsonLogger& operator=(JsonLogger&&) = delete;
 
 public:
   void RecordStep(const Calculation::Drone& drone, const Calculation::Target& target) override
@@ -810,10 +819,10 @@ private:
 
 class MissionProcessor {
 public:
-  MissionProcessor(Params::IConfigLoader* configLoader,
-                   TargetsParams::ITargetLoader* targetLoader,
-                   IBallisticSolver* ballisticSolver,
-                   ILogger* logger)
+  MissionProcessor(Params::IConfigLoaderPtr configLoader,
+                   TargetsParams::ITargetLoaderPtr targetLoader,
+                   IBallisticSolverPtr ballisticSolver,
+                   ILoggerPtr logger)
   {
     if (!configLoader) {
       throw std::logic_error("ConfigLoader is not initialized");
@@ -831,16 +840,13 @@ public:
       throw std::logic_error("Logger is not initialized");
     }
 
-    m_configLoader = configLoader;
-    m_targetLoader = targetLoader;
-    m_ballisticSolver = ballisticSolver;
-    m_logger = logger;
+    m_configLoader = std::move(configLoader);
+    m_targetLoader = std::move(targetLoader);
+    m_ballisticSolver = std::move(ballisticSolver);
+    m_logger = std::move(logger);
   }
 
-  ~MissionProcessor()
-  {
-    // do not delete here, MissionProcessor is not supposed to controle lifetime of external objects
-  }
+  ~MissionProcessor() = default;
 
 private:
   MissionProcessor(const MissionProcessor&) = delete;
@@ -870,12 +876,12 @@ public:
     m_initialized = true;
   }
 
-  void ChangeSolver(IBallisticSolver* ballisticSolver)
+  void ChangeSolver(IBallisticSolverPtr ballisticSolver)
   {
     if (!ballisticSolver) {
       throw std::logic_error("New BallisticSolver is not initialized");
     }
-    m_ballisticSolver = ballisticSolver;
+    m_ballisticSolver = std::move(ballisticSolver);
   }
 
   void Reset()
@@ -929,6 +935,10 @@ public:
     }
 
     m_logger->DumpLog(m_dataFolderPath, m_step);
+
+    if (m_step != 81) {
+      std::cerr << std::format("Warning: Simulation finished in {} steps, expected 81 steps.\n", m_step);
+    }
   }
 
 private:
@@ -1075,10 +1085,10 @@ private:
   }
 
 private:
-  Params::IConfigLoader* m_configLoader{};
-  TargetsParams::ITargetLoader* m_targetLoader{};
-  IBallisticSolver* m_ballisticSolver{};
-  ILogger* m_logger{};
+  Params::IConfigLoaderPtr m_configLoader;
+  TargetsParams::ITargetLoaderPtr m_targetLoader;
+  IBallisticSolverPtr m_ballisticSolver;  // ptr here to be able to swap solvers on the fly
+  ILoggerPtr m_logger;
 
   bool m_initialized{false};
   std::string m_dataFolderPath{};
@@ -1094,11 +1104,11 @@ private:
 
 enum class SolverType { ANALYTICAL };
 
-IBallisticSolver* CreateSolver(SolverType type)
+IBallisticSolverPtr CreateSolver(SolverType type)
 {
   switch (type) {
     case SolverType::ANALYTICAL:
-      return new AnalyticalSolver();
+      return std::make_unique<AnalyticalSolver>();
     default:
       throw std::out_of_range(
         std::format("CreateSolver factory cannot create a Sorver for type {}", static_cast<std::underlying_type_t<SolverType>>(type)));
@@ -1107,11 +1117,11 @@ IBallisticSolver* CreateSolver(SolverType type)
 
 enum class LoggerType { JSON_FILE };
 
-ILogger* CreateLogger(LoggerType type)
+ILoggerPtr CreateLogger(LoggerType type)
 {
   switch (type) {
     case LoggerType::JSON_FILE:
-      return new JsonLogger();
+      return std::make_unique<JsonLogger>();
     default:
       throw std::out_of_range(
         std::format("CreateLogger factory cannot create a Logger for type {}", static_cast<std::underlying_type_t<LoggerType>>(type)));
@@ -1130,11 +1140,11 @@ int main(int argc, char** argv)
 
   auto configLoader = Params::CreateLoader(Params::ConfigLoaderType::JSON_FILE);
   auto targetLoader = TargetsParams::CreateTargetLoader(TargetsParams::TargetLoaderType::JSON_FILE);
-  auto solver = Calculation::CreateSolver(Calculation::SolverType::ANALYTICAL);
   auto logger = Calculation::CreateLogger(Calculation::LoggerType::JSON_FILE);
+  auto solver = Calculation::CreateSolver(Calculation::SolverType::ANALYTICAL);
 
   try {
-    Calculation::MissionProcessor missionProcessor(configLoader, targetLoader, solver, logger);
+    Calculation::MissionProcessor missionProcessor(std::move(configLoader), std::move(targetLoader), std::move(solver), std::move(logger));
 
     missionProcessor.Init(argv[1]);
 
@@ -1144,18 +1154,5 @@ int main(int argc, char** argv)
     std::cerr << e.what() << std::endl;
   }
 
-  // clean up
-  if (!configLoader) {
-    delete configLoader;
-  }
-  if (!targetLoader) {
-    delete targetLoader;
-  }
-  if (!solver) {
-    delete solver;
-  }
-  if (!logger) {
-    delete logger;
-  }
   return 0;
 }
