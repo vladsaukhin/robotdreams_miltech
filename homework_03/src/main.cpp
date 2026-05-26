@@ -1,6 +1,6 @@
 #include <cmath>
 #include <cstddef>
-#include <cstring>
+#include <string>
 #include <exception>
 #include <fstream>
 #include <iostream>
@@ -11,86 +11,6 @@
 #include <nlohmann/json.hpp>
 
 namespace Utils {
-
-class MyString {
-public:
-  MyString() = default;
-
-  explicit MyString(const char* str)
-  {
-    if (!str) {
-      return;
-    }
-
-    m_size = std::strlen(str);
-    m_data = new char[m_size + 1];
-
-    std::memcpy(m_data, str, m_size + 1);  // including '\0'
-  }
-
-  explicit MyString(std::size_t size)
-    : m_data(new char[size + 1]{})
-    , m_size(size)
-  {
-  }
-
-  ~MyString() { delete[] m_data; }
-
-  MyString(const MyString&) = delete;
-  MyString& operator=(const MyString&) = delete;
-
-  MyString(MyString&& other) noexcept
-    : m_data(other.m_data)
-    , m_size(other.m_size)
-  {
-    other.m_data = nullptr;
-    other.m_size = 0;
-  }
-
-  MyString& operator=(MyString&& other) noexcept
-  {
-    if (this != &other) {
-      delete[] m_data;
-
-      m_data = other.m_data;
-      m_size = other.m_size;
-
-      other.m_data = nullptr;
-      other.m_size = 0;
-    }
-
-    return *this;
-  }
-
-  friend MyString operator+(const MyString& lhs, const MyString& rhs)
-  {
-    MyString result(lhs.m_size + rhs.m_size);
-
-    if (lhs.m_size > 0) {
-      std::memcpy(result.m_data, lhs.m_data, lhs.m_size);
-    }
-
-    if (rhs.m_size > 0) {
-      std::memcpy(result.m_data + lhs.m_size, rhs.m_data, rhs.m_size);
-    }
-
-    result.m_data[result.m_size] = '\0';
-
-    return result;
-  }
-
-  char* Data() noexcept { return m_data; }
-  const char* CStr() const noexcept { return m_data ? m_data : ""; }
-
-  std::size_t Size() const noexcept { return m_size; }
-
-  char& operator[](std::size_t index) noexcept { return m_data[index]; }
-  const char& operator[](std::size_t index) const noexcept { return m_data[index]; }
-
-private:
-  char* m_data{};
-  std::size_t m_size{};
-};
 
 template <typename T>
 class MyArray {
@@ -321,7 +241,7 @@ struct DroneConfig {
   double angularSpeed{};      // кутова швидкість (рад/с)
   double turnThreshold{};     // поріг повороту (рад)
 
-  Utils::MyString ammoName{};  // обрані боєприпаси
+  std::string ammoName{};  // обрані боєприпаси
   AmmoParams ammoParams{};
 };
 
@@ -330,7 +250,7 @@ public:
   virtual ~IConfigLoader() = default;
 
 public:
-  virtual bool Load(const Utils::MyString& dataFolderPath) = 0;
+  virtual bool Load(std::string_view dataFolderPath) = 0;
 
   virtual const DroneConfig& GetConfig() const = 0;
   virtual const AmmoParams& GetAmmoParams() const = 0;
@@ -348,20 +268,17 @@ private:
   JsonConfigLoader& operator=(JsonConfigLoader&&) = delete;
 
 public:
-  bool Load(const Utils::MyString& dataFolderPath) override
-  {
-    return readConfig(dataFolderPath) && readAmmo(dataFolderPath) && validateConfig();
-  }
+  bool Load(std::string_view dataFolderPath) override { return readConfig(dataFolderPath) && readAmmo(dataFolderPath) && validateConfig(); }
   const DroneConfig& GetConfig() const override { return m_config; };
   const AmmoParams& GetAmmoParams() const override { return m_config.ammoParams; };
 
 private:
-  bool readConfig(const Utils::MyString& dataFolderPath)
+  bool readConfig(std::string_view dataFolderPath)
   {
-    const auto confPath = dataFolderPath + Utils::MyString("/config.json");
-    std::ifstream input(confPath.CStr());
+    const auto confPath = dataFolderPath.data() + std::string("/config.json");
+    std::ifstream input(confPath);
     if (!input) {
-      std::cerr << std::format("Can't open {}", confPath.CStr()) << std::endl;
+      std::cerr << std::format("Can't open {}", confPath) << std::endl;
       return false;
     }
 
@@ -385,7 +302,7 @@ private:
       m_config.angularSpeed = drone.at("angularSpeed").get<double>();
       m_config.turnThreshold = drone.at("turnThreshold").get<double>();
 
-      m_config.ammoName = Utils::MyString(j.at("ammo").get<std::string>().c_str());
+      m_config.ammoName = j.at("ammo").get<std::string>().c_str();
 
       const auto& sim = j.at("simulation");
       m_config.simTimeStep = sim.at("timeStep").get<double>();
@@ -401,12 +318,12 @@ private:
     return true;
   }
 
-  bool readAmmo(const Utils::MyString& dataFolderPath)
+  bool readAmmo(std::string_view dataFolderPath)
   {
-    const auto ammoPath = dataFolderPath + Utils::MyString("/ammo.json");
-    std::ifstream input(ammoPath.CStr());
+    const auto ammoPath = dataFolderPath.data() + std::string("/ammo.json");
+    std::ifstream input(ammoPath);
     if (!input) {
-      std::cerr << std::format("Can't open {}", ammoPath.CStr()) << std::endl;
+      std::cerr << std::format("Can't open {}", ammoPath) << std::endl;
       return false;
     }
 
@@ -419,7 +336,7 @@ private:
 
       const size_t ammoCount = j.size();
       for (size_t i = 0; i < ammoCount; ++i) {
-        if (std::strcmp(m_config.ammoName.CStr(), j[i].at("name").get<std::string>().c_str()) == 0) {
+        if (m_config.ammoName == j[i].at("name").get<std::string>()) {
           m_config.ammoParams.mass = j[i].at("mass").get<double>();
           m_config.ammoParams.drag = j[i].at("drag").get<double>();
           m_config.ammoParams.lift = j[i].at("lift").get<double>();
@@ -505,7 +422,7 @@ public:
   virtual ~ITargetLoader() = default;
 
 public:
-  virtual bool Load(const Utils::MyString& dataFolderPath) = 0;
+  virtual bool Load(std::string_view dataFolderPath) = 0;
 
   virtual size_t GetTargetCount() const = 0;
   virtual size_t GetTargetTimeStepsCount() const = 0;
@@ -526,7 +443,7 @@ private:
   JsonTargetLoader& operator=(JsonTargetLoader&&) = delete;
 
 public:
-  bool Load(const Utils::MyString& dataFolderPath) override { return readTargets(dataFolderPath); }
+  bool Load(std::string_view dataFolderPath) override { return readTargets(dataFolderPath); }
 
   size_t GetTargetCount() const override { return m_targetCount; }
   size_t GetTargetTimeStepsCount() const override { return m_targetTimeStepsCount; }
@@ -535,12 +452,12 @@ public:
   const Utils::Coord& GetTargetCoordByTime(size_t targetIdx, size_t timeIdx) const override { return m_targetsInTime[targetIdx][timeIdx]; }
 
 private:
-  bool readTargets(const Utils::MyString& dataFolderPath)
+  bool readTargets(std::string_view dataFolderPath)
   {
-    const auto targetsPath = dataFolderPath + Utils::MyString("/targets.json");
-    std::ifstream input(targetsPath.CStr());
+    const auto targetsPath = dataFolderPath.data() + std::string("/targets.json");
+    std::ifstream input(targetsPath);
     if (!input) {
-      std::cerr << std::format("Can't open {}", targetsPath.CStr()) << std::endl;
+      std::cerr << std::format("Can't open {}", targetsPath) << std::endl;
       return false;
     }
 
@@ -815,7 +732,7 @@ private:
         m_commonBallisticsSolved = true;
       }
       else {
-        throw std::logic_error(std::format("Connot solve balistics for given ammo {}", conf.ammoName.CStr()));
+        throw std::logic_error(std::format("Connot solve balistics for given ammo {}", conf.ammoName));
       }
     }
   }
@@ -896,7 +813,7 @@ public:
 
 public:
   virtual void RecordStep(int idx, const Calculation::Drone& drone, const Calculation::Target& target) = 0;
-  virtual void DumpLog(const Utils::MyString& dataFolderPath, size_t lastStepIdx) = 0;
+  virtual void DumpLog(std::string_view dataFolderPath, size_t lastStepIdx) = 0;
   virtual void Reset() = 0;
 };
 
@@ -924,15 +841,15 @@ public:
     m_simSteps[idx].predictedTarget = target.predictedPosition;
   }
 
-  void DumpLog(const Utils::MyString& dataFolderPath, size_t lastStepIdx) override
+  void DumpLog(std::string_view dataFolderPath, size_t lastStepIdx) override
   {
     try {
       if (lastStepIdx > m_simSteps.Size()) {
         throw std::runtime_error("lastStepIdx is greater than log size.");
       }
 
-      const auto logPath = dataFolderPath + Utils::MyString("/simulation.json");
-      std::ofstream output(logPath.CStr());
+      const auto logPath = dataFolderPath.data() + std::string("/simulation.json");
+      std::ofstream output(logPath);
       if (!output) {
         throw std::runtime_error("Failed to open simulation.json for writing");
       }
@@ -1025,7 +942,7 @@ private:
   MissionProcessor& operator=(MissionProcessor&&) = delete;
 
 public:
-  void Init(const Utils::MyString& dataFolderPath)
+  void Init(std::string_view dataFolderPath)
   {
     if (!m_configLoader->Load(dataFolderPath)) {
       throw std::logic_error("Cannot initialize ConfigLoader");
@@ -1040,7 +957,7 @@ public:
     m_drone.state = Calculation::STOPPED;
 
     m_acceleration = std::pow(m_configLoader->GetConfig().attackSpeed, 2) / (2.0f * m_configLoader->GetConfig().accelerationPath);
-    m_dataFolderPath = Utils::MyString(dataFolderPath.CStr());
+    m_dataFolderPath = dataFolderPath;
 
     m_initialized = true;
   }
@@ -1256,7 +1173,7 @@ private:
   ILogger* m_logger{};
 
   bool m_initialized{false};
-  Utils::MyString m_dataFolderPath{};
+  std::string m_dataFolderPath{};
 
 private:
   int m_currentProcessedTargetID{UNDEFINED_TARGET_ID};
@@ -1303,8 +1220,6 @@ int main(int argc, char** argv)
     return 1;
   }
 
-  const auto pathToDirWithFiles = Utils::MyString(argv[1]);
-
   auto configLoader = Params::CreateLoader(Params::ConfigLoaderType::JSON_FILE);
   auto targetLoader = TargetsParams::CreateTargetLoader(TargetsParams::TargetLoaderType::JSON_FILE);
   auto solver = Calculation::CreateSolver(Calculation::SolverType::ANALYTICAL);
@@ -1313,7 +1228,7 @@ int main(int argc, char** argv)
   try {
     Calculation::MissionProcessor missionProcessor(configLoader, targetLoader, solver, logger);
 
-    missionProcessor.Init(pathToDirWithFiles);
+    missionProcessor.Init(argv[1]);
 
     missionProcessor.ProcessMission();
   }
