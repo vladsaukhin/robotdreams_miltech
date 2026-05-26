@@ -324,8 +324,6 @@ IConfigLoader* CreateLoader(ConfigLoaderType type)
 
 namespace TargetsParams {
 
-using TargetsInTime = std::vector<Utils::ListOfCoords>;
-
 class ITargetLoader {
 public:
   virtual ~ITargetLoader() = default;
@@ -395,6 +393,9 @@ private:
 
       m_targetsInTime.reserve(m_targetCount);  // preallocate memory for targets
 
+      Utils::ListOfCoords targetPositions;
+      targetPositions.reserve(m_targetTimeStepsCount);
+
       for (size_t i = 0; i < targets.size(); ++i) {
         const auto& target = targets.at(i);
 
@@ -413,11 +414,6 @@ private:
           throw std::runtime_error("positions.size != timeSteps");
         }
 
-        // preallocate memory for target positions in time
-
-        m_targetsInTime.emplace_back(Utils::ListOfCoords(m_targetTimeStepsCount));
-        auto targetPositionsIter = m_targetsInTime.back();
-
         // read
         for (size_t k = 0; k < positions.size(); ++k) {
           const auto& position = positions.at(k);
@@ -433,8 +429,10 @@ private:
             throw std::runtime_error("Coords must be non-negative");
           }
 
-          targetPositionsIter.push_back({x, y});
+          targetPositions.push_back({x, y});
         }
+
+        m_targetsInTime.push_back(std::move(targetPositions));  // resets targetPositions
       }
     }
     catch (const std::exception& e) {
@@ -448,7 +446,7 @@ private:
 private:
   size_t m_targetCount{};
   size_t m_targetTimeStepsCount{};
-  TargetsInTime m_targetsInTime{};
+  std::vector<Utils::ListOfCoords> m_targetsInTime{};
 };
 
 enum class TargetLoaderType { JSON_FILE };
@@ -726,7 +724,7 @@ public:
   virtual ~ILogger() = default;
 
 public:
-  virtual void RecordStep(int idx, const Calculation::Drone& drone, const Calculation::Target& target) = 0;
+  virtual void RecordStep(const Calculation::Drone& drone, const Calculation::Target& target) = 0;
   virtual void DumpLog(std::string_view dataFolderPath, size_t lastStepIdx) = 0;
   virtual void Reset() = 0;
 };
@@ -743,16 +741,19 @@ private:
   JsonLogger& operator=(JsonLogger&&) = delete;
 
 public:
-  void RecordStep(int idx, const Calculation::Drone& drone, const Calculation::Target& target) override
+  void RecordStep(const Calculation::Drone& drone, const Calculation::Target& target) override
   {
-    m_simSteps[idx].pos = drone.position;
-    m_simSteps[idx].direction = drone.diraction;
-    m_simSteps[idx].state = drone.state;
-    m_simSteps[idx].targetIdx = drone.currentTarget;
+    SimStep step;
+    step.pos = drone.position;
+    step.direction = drone.diraction;
+    step.state = drone.state;
+    step.targetIdx = drone.currentTarget;
 
-    m_simSteps[idx].dropPoint = target.releasePoint;
-    m_simSteps[idx].aimPoint = target.aimPoint;
-    m_simSteps[idx].predictedTarget = target.predictedPosition;
+    step.dropPoint = target.releasePoint;
+    step.aimPoint = target.aimPoint;
+    step.predictedTarget = target.predictedPosition;
+
+    m_simSteps.push_back(std::move(step));
   }
 
   void DumpLog(std::string_view dataFolderPath, size_t lastStepIdx) override
@@ -794,19 +795,17 @@ public:
 
 private:
   struct SimStep {
-    Utils::Coord pos;               // позиція дрона
-    double direction;               // напрямок (рад)
-    Calculation::DroneState state;  // стан автомата (0-4)
-    int targetIdx;                  // індекс поточної цілі
-    Utils::Coord dropPoint;         // точка скиду (куди летить дрон)
-    Utils::Coord aimPoint;          // куди впаде бомба (якщо скинути зараз)
-    Utils::Coord predictedTarget;   // прогнозована позиція цілі
+    Utils::Coord pos{};               // позиція дрона
+    double direction{};               // напрямок (рад)
+    Calculation::DroneState state{};  // стан автомата (0-4)
+    int targetIdx{};                  // індекс поточної цілі
+    Utils::Coord dropPoint{};         // точка скиду (куди летить дрон)
+    Utils::Coord aimPoint{};          // куди впаде бомба (якщо скинути зараз)
+    Utils::Coord predictedTarget{};   // прогнозована позиція цілі
   };
 
-  using SimSteps = std::vector<SimStep>;
-
 private:
-  SimSteps m_simSteps{};
+  std::vector<SimStep> m_simSteps{};
 };
 
 class MissionProcessor {
@@ -913,7 +912,7 @@ public:
 
       moveDrone();
 
-      m_logger->RecordStep(m_step, m_drone, bestTarget);
+      m_logger->RecordStep(m_drone, bestTarget);
 
       // release point
       if (m_drone.state == MOVING && (bestTarget.releasePoint - m_drone.position).Length() <= 0.25 * conf.hitRadius) {
