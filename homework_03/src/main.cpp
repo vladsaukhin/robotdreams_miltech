@@ -667,7 +667,7 @@ struct Target {
 
 struct BallisticsSolverContext {
   int targetIdx{UNDEFINED_TARGET_ID};
-  const Params::DroneConfig& conf;
+  const Params::IConfigLoader& conf;
   const Calculation::Drone& drone;
   const TargetsParams::ITargetLoader& targetLoader;
   double currentTime{};
@@ -696,12 +696,12 @@ private:
 public:
   Target Solve(const BallisticsSolverContext& context) override
   {
-    solveCommonBallistics(context.conf);
+    const auto& conf = context.conf.GetConfig();
+    solveCommonBallistics(conf);
 
     Calculation::Target target{.idx = context.targetIdx};
 
     const auto& drone = context.drone;
-    const auto& conf = context.conf;
 
     const auto targetVelocity = getTargetVelocity(target.idx, conf, context.targetLoader, context.currentTime);
 
@@ -897,6 +897,7 @@ public:
 public:
   virtual void RecordStep(int idx, const Calculation::Drone& drone, const Calculation::Target& target) = 0;
   virtual void DumpLog(const Utils::MyString& dataFolderPath, size_t lastStepIdx) = 0;
+  virtual void Reset() = 0;
 };
 
 class JsonLogger : public ILogger {
@@ -957,6 +958,12 @@ public:
     catch (const std::exception& e) {
       std::cerr << "JsonLogger: " << e.what() << '\n';
     }
+  }
+
+  void Reset() override
+  {
+    m_simSteps.Reset();
+    m_simSteps = SimSteps(MAX_STEPS);
   }
 
 private:
@@ -1046,6 +1053,17 @@ public:
     m_ballisticSolver = ballisticSolver;
   }
 
+  void Reset()
+  {
+    m_drone.position = m_configLoader->GetConfig().startPos;
+    m_drone.diraction = m_configLoader->GetConfig().initialDir;
+    m_drone.state = Calculation::STOPPED;
+    m_currentTime = 0.0;
+    m_step = 0;
+
+    m_logger->Reset();
+  }
+
   void ProcessMission()
   {
     if (!m_initialized) {
@@ -1056,8 +1074,13 @@ public:
 
     while (m_step < Calculation::MAX_STEPS) {
       Calculation::Target bestTarget{};
-      if (!selectBestTarget(bestTarget)) {
-        throw std::runtime_error(std::format("No valid target solution at step {}", m_step));
+      m_currentProcessedTargetID = 0;
+
+      while (hasNext()) {
+        auto target = step();
+        if (target.totalTime < bestTarget.totalTime) {
+          bestTarget = std::move(target);
+        }
       }
 
       adjustDroneStateToTarget(bestTarget);
@@ -1084,7 +1107,7 @@ public:
   }
 
 private:
-  double getStopTime()
+  double getStopTime() const
   {
     switch (m_drone.state) {
       case STOPPED:
@@ -1103,31 +1126,28 @@ private:
     }
   }
 
-  bool selectBestTarget(Calculation::Target& bestTarget)
+  // required method ?
+  bool hasNext() { return m_currentProcessedTargetID < static_cast<int>(m_targetLoader->GetTargetCount()); }
+
+  // required method ?
+  Target step()
   {
-    bool found = false;
+    BallisticsSolverContext context{.targetIdx = m_currentProcessedTargetID,
+                                    .conf = *m_configLoader,
+                                    .drone = m_drone,
+                                    .targetLoader = *m_targetLoader,
+                                    .currentTime = m_currentTime,
+                                    .acceleration = m_acceleration};
 
-    const int targetsCount = static_cast<int>(m_targetLoader->GetTargetCount());
-    for (int targetID = 0; targetID < targetsCount; ++targetID) {
-      BallisticsSolverContext context{.targetIdx = targetID,
-                                      .conf = m_configLoader->GetConfig(),
-                                      .drone = m_drone,
-                                      .targetLoader = *m_targetLoader,
-                                      .currentTime = m_currentTime,
-                                      .acceleration = m_acceleration};
+    auto target = m_ballisticSolver->Solve(context);
 
-      auto target = m_ballisticSolver->Solve(context);
-
-      if (m_drone.currentTarget != UNDEFINED_TARGET_ID && m_drone.currentTarget != targetID) {
-        target.totalTime += getStopTime();
-      }
-
-      if (target.totalTime < bestTarget.totalTime) {
-        bestTarget = std::move(target);
-        found = true;
-      }
+    if (m_drone.currentTarget != UNDEFINED_TARGET_ID && m_drone.currentTarget != m_currentProcessedTargetID) {
+      target.totalTime += getStopTime();
     }
-    return found;
+
+    m_currentProcessedTargetID++;
+
+    return target;
   }
 
   void adjustDroneStateToTarget(const Target& target)
@@ -1239,6 +1259,7 @@ private:
   Utils::MyString m_dataFolderPath{};
 
 private:
+  int m_currentProcessedTargetID{UNDEFINED_TARGET_ID};
   Drone m_drone{};
   size_t m_step{0};
   double m_currentTime{};
