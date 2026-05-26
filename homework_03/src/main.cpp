@@ -7,102 +7,11 @@
 #include <stdexcept>
 #include <string_view>
 #include <format>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
 namespace Utils {
-
-template <typename T>
-class MyArray {
-public:
-  MyArray() noexcept = default;
-
-  explicit MyArray(std::size_t size)
-    : m_ptr(size ? new T[size]{} : nullptr)
-    , m_size(size)
-  {
-  }
-
-  explicit MyArray(T* ptr, std::size_t size) noexcept
-    : m_ptr(ptr)
-    , m_size(size)
-  {
-  }
-
-  ~MyArray() { delete[] m_ptr; }
-
-  MyArray(const MyArray&) = delete;
-  MyArray& operator=(const MyArray&) = delete;
-
-  MyArray(MyArray&& other) noexcept
-    : m_ptr(other.m_ptr)
-    , m_size(other.m_size)
-  {
-    other.m_ptr = nullptr;
-    other.m_size = 0;
-  }
-
-  MyArray& operator=(MyArray&& other) noexcept
-  {
-    if (this != &other) {
-      delete[] m_ptr;
-
-      m_ptr = other.m_ptr;
-      m_size = other.m_size;
-
-      other.m_ptr = nullptr;
-      other.m_size = 0;
-    }
-
-    return *this;
-  }
-
-  T& operator[](std::size_t index)
-  {
-    if (index > m_size) {
-      throw std::out_of_range(std::format("MyArray::[index] is out of range: {} > {}", index, m_size));
-    }
-
-    return m_ptr[index];
-  }
-
-  const T& operator[](std::size_t index) const
-  {
-    if (index > m_size) {
-      throw std::out_of_range(std::format("MyArray::[index] is out of range: {} > {}", index, m_size));
-    }
-    return m_ptr[index];
-  }
-
-  T* Get() noexcept { return m_ptr; }
-
-  const T* Get() const noexcept { return m_ptr; }
-
-  std::size_t Size() const noexcept { return m_size; }
-
-  explicit operator bool() const noexcept { return m_ptr != nullptr; }
-
-  T* Release() noexcept
-  {
-    T* ptr = m_ptr;
-    m_ptr = nullptr;
-    m_size = 0;
-    return ptr;
-  }
-
-  void Reset(T* ptr = nullptr, std::size_t size = 0) noexcept
-  {
-    if (m_ptr != ptr) {
-      delete[] m_ptr;
-      m_ptr = ptr;
-      m_size = size;
-    }
-  }
-
-private:
-  T* m_ptr{nullptr};
-  std::size_t m_size{};
-};
 
 struct Coord {
   double x{};
@@ -150,7 +59,7 @@ struct Coord {
   }
 };
 
-using ListOfCoords = MyArray<Coord>;
+using ListOfCoords = std::vector<Coord>;
 
 inline std::ostream& operator<<(std::ostream& os, const Coord& c)
 {
@@ -415,7 +324,7 @@ IConfigLoader* CreateLoader(ConfigLoaderType type)
 
 namespace TargetsParams {
 
-using TargetsInTime = Utils::MyArray<Utils::ListOfCoords>;
+using TargetsInTime = std::vector<Utils::ListOfCoords>;
 
 class ITargetLoader {
 public:
@@ -448,8 +357,11 @@ public:
   size_t GetTargetCount() const override { return m_targetCount; }
   size_t GetTargetTimeStepsCount() const override { return m_targetTimeStepsCount; }
 
-  const Utils::ListOfCoords& GetTargetTimes(size_t targetIdx) const override { return m_targetsInTime[targetIdx]; }
-  const Utils::Coord& GetTargetCoordByTime(size_t targetIdx, size_t timeIdx) const override { return m_targetsInTime[targetIdx][timeIdx]; }
+  const Utils::ListOfCoords& GetTargetTimes(size_t targetIdx) const override { return m_targetsInTime.at(targetIdx); }
+  const Utils::Coord& GetTargetCoordByTime(size_t targetIdx, size_t timeIdx) const override
+  {
+    return m_targetsInTime.at(targetIdx).at(timeIdx);
+  }
 
 private:
   bool readTargets(std::string_view dataFolderPath)
@@ -481,7 +393,7 @@ private:
         throw std::runtime_error("targets.size != targetCount");
       }
 
-      m_targetsInTime = TargetsInTime(m_targetCount);
+      m_targetsInTime.reserve(m_targetCount);  // preallocate memory for targets
 
       for (size_t i = 0; i < targets.size(); ++i) {
         const auto& target = targets.at(i);
@@ -501,8 +413,10 @@ private:
           throw std::runtime_error("positions.size != timeSteps");
         }
 
-        // allocate
-        m_targetsInTime[i] = Utils::ListOfCoords(m_targetTimeStepsCount);
+        // preallocate memory for target positions in time
+
+        m_targetsInTime.emplace_back(Utils::ListOfCoords(m_targetTimeStepsCount));
+        auto targetPositionsIter = m_targetsInTime.back();
 
         // read
         for (size_t k = 0; k < positions.size(); ++k) {
@@ -519,7 +433,7 @@ private:
             throw std::runtime_error("Coords must be non-negative");
           }
 
-          m_targetsInTime[i][k] = {x, y};
+          targetPositionsIter.push_back({x, y});
         }
       }
     }
@@ -844,7 +758,7 @@ public:
   void DumpLog(std::string_view dataFolderPath, size_t lastStepIdx) override
   {
     try {
-      if (lastStepIdx > m_simSteps.Size()) {
+      if (lastStepIdx > m_simSteps.size()) {
         throw std::runtime_error("lastStepIdx is greater than log size.");
       }
 
@@ -857,8 +771,7 @@ public:
       nlohmann::json out;
       out["totalSteps"] = lastStepIdx;
       out["steps"] = nlohmann::json::array();
-      for (size_t i = 0; i < lastStepIdx; ++i) {
-        const auto& logStep = m_simSteps[i];
+      for (const auto& logStep : m_simSteps) {
         nlohmann::json step;
         step["position"] = {{"x", logStep.pos.x}, {"y", logStep.pos.y}};
         step["direction"] = logStep.direction;
@@ -877,11 +790,7 @@ public:
     }
   }
 
-  void Reset() override
-  {
-    m_simSteps.Reset();
-    m_simSteps = SimSteps(MAX_STEPS);
-  }
+  void Reset() override { m_simSteps.clear(); }
 
 private:
   struct SimStep {
@@ -894,10 +803,10 @@ private:
     Utils::Coord predictedTarget;   // прогнозована позиція цілі
   };
 
-  using SimSteps = Utils::MyArray<SimStep>;
+  using SimSteps = std::vector<SimStep>;
 
 private:
-  SimSteps m_simSteps{MAX_STEPS};
+  SimSteps m_simSteps{};
 };
 
 class MissionProcessor {
