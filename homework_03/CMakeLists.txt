@@ -9,7 +9,18 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(homework3)
 
-target_sources(homework3 PRIVATE src/main.cpp include/Coords.hpp include/Utils.h src/Utils.cpp)
+target_sources(
+    homework3
+    PRIVATE include/Coords.hpp
+            include/Utils.h
+            include/DroneConfig.h
+            include/interfaces/IConfigLoader.h
+            include/config/JsonConfigLoader.h
+            include/config/ConfigFactory.h
+            src/Utils.cpp
+            src/config/JsonConfigLoader.cpp
+            src/config/ConfigFactory.cpp
+            src/main.cpp)
 
 target_include_directories(homework3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
