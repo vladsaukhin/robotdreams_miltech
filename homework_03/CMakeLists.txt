@@ -7,7 +7,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_executable(homework3 src/main.cpp)
+add_executable(homework3)
+
+target_sources(homework3 PRIVATE src/main.cpp include/Coords.hpp include/Utils.h src/Utils.cpp)
+
+target_include_directories(homework3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_compile_options(homework3 PRIVATE -Wall -Wextra -pedantic)
 

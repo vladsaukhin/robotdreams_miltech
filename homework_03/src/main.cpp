@@ -8,128 +8,10 @@
 #include <stdexcept>
 #include <string_view>
 #include <format>
-#include <vector>
+
+#include "Utils.h"
 
 #include <nlohmann/json.hpp>
-
-namespace Utils {
-
-struct Coord {
-  double x{};
-  double y{};
-
-  constexpr Coord& operator+=(const Coord& other) noexcept
-  {
-    x += other.x;
-    y += other.y;
-    return *this;
-  }
-
-  constexpr Coord& operator-=(const Coord& other) noexcept
-  {
-    x -= other.x;
-    y -= other.y;
-    return *this;
-  }
-
-  constexpr Coord& operator*=(double scalar) noexcept
-  {
-    x *= scalar;
-    y *= scalar;
-    return *this;
-  }
-
-  constexpr Coord& operator/=(double scalar) noexcept
-  {
-    x /= scalar;
-    y /= scalar;
-    return *this;
-  }
-
-  constexpr auto operator<=>(const Coord&) const noexcept = default;
-
-  // Length / normalization
-  double Length() const noexcept { return std::sqrt(x * x + y * y); }
-
-  Coord Normalized() const noexcept
-  {
-    double len = Length();
-    if (len == 0.0f)
-      return {0.0f, 0.0f};
-    return {x / len, y / len};
-  }
-};
-
-using ListOfCoords = std::vector<Coord>;
-
-inline std::ostream& operator<<(std::ostream& os, const Coord& c)
-{
-  os << "(" << c.x << ", " << c.y << ")";
-  return os;
-}
-
-constexpr Coord operator+(Coord l, const Coord& r) noexcept
-{
-  l += r;
-  return l;
-}
-
-constexpr Coord operator-(Coord l, const Coord& r) noexcept
-{
-  l -= r;
-  return l;
-}
-
-constexpr Coord operator*(Coord l, double scalar) noexcept
-{
-  l *= scalar;
-  return l;
-}
-
-constexpr Coord operator*(double scalar, Coord r) noexcept
-{
-  r *= scalar;
-  return r;
-}
-
-constexpr Coord operator/(Coord l, double scalar) noexcept
-{
-  l /= scalar;
-  return l;
-}
-
-double NormalizeAngle360(double angle)  // [0, 2π)
-{
-  double a = std::fmod(angle, 2.0f * M_PI);
-  if (a < 0.0f) {
-    a += 2.0f * M_PI;
-  }
-  return a;
-}
-
-double NormalizeAngle180(double angle)  // (-π, π]
-{
-  constexpr double TWO_PI = 2.0f * M_PI;
-  while (angle > M_PI) {
-    angle -= TWO_PI;
-  }
-  while (angle < -M_PI) {
-    angle += TWO_PI;
-  }
-  return angle;
-}
-
-double AngleDiff(double from, double to)
-{
-  return NormalizeAngle180(to - from);
-}
-
-double GetDistance(const Coord& a, const Coord& b)
-{
-  return (b - a).Length();
-}
-
-}  // namespace Utils
 
 namespace Params {
 
@@ -140,7 +22,7 @@ struct AmmoParams {
 };
 
 struct DroneConfig {
-  Utils::Coord startPos{};    // початкова позиція (x, y)
+  Coord startPos{};           // початкова позиція (x, y)
   double altitude{};          // висота
   double initialDir{};        // початковий напрямок (рад)
   double attackSpeed{};       // швидкість атаки (м/с)
@@ -337,8 +219,8 @@ public:
   virtual size_t GetTargetCount() const = 0;
   virtual size_t GetTargetTimeStepsCount() const = 0;
 
-  virtual const Utils::ListOfCoords& GetTargetTimes(size_t targetIdx) const = 0;
-  virtual const Utils::Coord& GetTargetCoordByTime(size_t targetIdx, size_t timeIdx) const = 0;
+  virtual const ListOfCoords& GetTargetTimes(size_t targetIdx) const = 0;
+  virtual const Coord& GetTargetCoordByTime(size_t targetIdx, size_t timeIdx) const = 0;
 };
 
 using ITargetLoaderPtr = std::unique_ptr<ITargetLoader>;
@@ -360,11 +242,8 @@ public:
   size_t GetTargetCount() const override { return m_targetCount; }
   size_t GetTargetTimeStepsCount() const override { return m_targetTimeStepsCount; }
 
-  const Utils::ListOfCoords& GetTargetTimes(size_t targetIdx) const override { return m_targetsInTime.at(targetIdx); }
-  const Utils::Coord& GetTargetCoordByTime(size_t targetIdx, size_t timeIdx) const override
-  {
-    return m_targetsInTime.at(targetIdx).at(timeIdx);
-  }
+  const ListOfCoords& GetTargetTimes(size_t targetIdx) const override { return m_targetsInTime.at(targetIdx); }
+  const Coord& GetTargetCoordByTime(size_t targetIdx, size_t timeIdx) const override { return m_targetsInTime.at(targetIdx).at(timeIdx); }
 
 private:
   bool readTargets(std::string_view dataFolderPath)
@@ -398,7 +277,7 @@ private:
 
       m_targetsInTime.reserve(m_targetCount);  // preallocate memory for targets
 
-      Utils::ListOfCoords targetPositions;
+      ListOfCoords targetPositions;
       targetPositions.reserve(m_targetTimeStepsCount);
 
       for (size_t i = 0; i < targets.size(); ++i) {
@@ -451,7 +330,7 @@ private:
 private:
   size_t m_targetCount{};
   size_t m_targetTimeStepsCount{};
-  std::vector<Utils::ListOfCoords> m_targetsInTime{};
+  std::vector<ListOfCoords> m_targetsInTime{};
 };
 
 enum class TargetLoaderType { JSON_FILE };
@@ -478,7 +357,7 @@ constexpr int UNDEFINED_TARGET_ID{-1};
 enum DroneState : uint8_t { STOPPED, ACCELERATING, DECELERATING, TURNING, MOVING };
 
 struct Drone {
-  Utils::Coord position{};
+  Coord position{};
   double diraction{};
 
   int currentTarget{UNDEFINED_TARGET_ID};
@@ -493,10 +372,10 @@ struct Target {
   int idx{UNDEFINED_TARGET_ID};
 
   double totalTime{std::numeric_limits<double>::max()};
-  Utils::Coord releasePoint{};
+  Coord releasePoint{};
 
-  Utils::Coord predictedPosition{};
-  Utils::Coord aimPoint{};
+  Coord predictedPosition{};
+  Coord aimPoint{};
 };
 
 struct BallisticsSolverContext {
@@ -656,7 +535,7 @@ private:
     }
   }
 
-  Utils::Coord getInterpolatedTarget(const TargetsParams::ITargetLoader& targetsLoader, size_t targetIdx, double arrayTimeStep, double time)
+  Coord getInterpolatedTarget(const TargetsParams::ITargetLoader& targetsLoader, size_t targetIdx, double arrayTimeStep, double time)
   {
     const double samplePos = time / arrayTimeStep;
     const int rawIdx = static_cast<int>(std::floor(samplePos));
@@ -670,10 +549,10 @@ private:
     return {x, y};
   }
 
-  Utils::Coord getTargetVelocity(size_t targetIdx,
-                                 const Params::DroneConfig& conf,
-                                 const TargetsParams::ITargetLoader& targetsLoader,
-                                 double currentTime)
+  Coord getTargetVelocity(size_t targetIdx,
+                          const Params::DroneConfig& conf,
+                          const TargetsParams::ITargetLoader& targetsLoader,
+                          double currentTime)
   {
     const double dt = conf.simTimeStep;
     const auto p0 = getInterpolatedTarget(targetsLoader, targetIdx, conf.arrayTimeStep, currentTime);
@@ -681,9 +560,9 @@ private:
     return {(p1.x - p0.x) / dt, (p1.y - p0.y) / dt};
   }
 
-  Utils::Coord getFirePoint(const Utils::Coord& dronPos, const Utils::Coord& targetPos)
+  Coord getFirePoint(const Coord& dronPos, const Coord& targetPos)
   {
-    const Utils::Coord delta = targetPos - dronPos;
+    const Coord delta = targetPos - dronPos;
     const double distanceToTarget = delta.Length();
     const double ratio = (distanceToTarget - m_horizontalFlightDistance) / distanceToTarget;
 
@@ -713,9 +592,9 @@ private:
     return timeToMaxSpeed + cruiseTime;
   }
 
-  Utils::Coord getAimPoint(const Drone& drone)
+  Coord getAimPoint(const Drone& drone)
   {
-    Utils::Coord dir{std::cos(drone.diraction), std::sin(drone.diraction)};
+    Coord dir{std::cos(drone.diraction), std::sin(drone.diraction)};
 
     return drone.position + dir * m_horizontalFlightDistance;
   }
@@ -804,13 +683,13 @@ public:
 
 private:
   struct SimStep {
-    Utils::Coord pos{};               // позиція дрона
+    Coord pos{};                      // позиція дрона
     double direction{};               // напрямок (рад)
     Calculation::DroneState state{};  // стан автомата (0-4)
     int targetIdx{};                  // індекс поточної цілі
-    Utils::Coord dropPoint{};         // точка скиду (куди летить дрон)
-    Utils::Coord aimPoint{};          // куди впаде бомба (якщо скинути зараз)
-    Utils::Coord predictedTarget{};   // прогнозована позиція цілі
+    Coord dropPoint{};                // точка скиду (куди летить дрон)
+    Coord aimPoint{};                 // куди впаде бомба (якщо скинути зараз)
+    Coord predictedTarget{};          // прогнозована позиція цілі
   };
 
 private:
@@ -991,9 +870,9 @@ private:
 
     m_drone.currentTarget = target.idx;
     const auto targetDir = target.releasePoint - m_drone.position;
-    m_drone.targetDir = Utils::NormalizeAngle180(std::atan2(targetDir.y, targetDir.x));
+    m_drone.targetDir = NormalizeAngle180(std::atan2(targetDir.y, targetDir.x));
 
-    const double deltaAngle = std::fabs(Utils::AngleDiff(m_drone.diraction, m_drone.targetDir));
+    const double deltaAngle = std::fabs(AngleDiff(m_drone.diraction, m_drone.targetDir));
 
     if (deltaAngle > conf.turnThreshold) {
       if (m_drone.state == DroneState::MOVING || m_drone.state == DroneState::ACCELERATING) {
@@ -1020,7 +899,7 @@ private:
 
   void changeDronePosition(double dt)
   {
-    const Utils::Coord positionToAdd = {std::cos(m_drone.diraction) * m_drone.speed * dt, std::sin(m_drone.diraction) * m_drone.speed * dt};
+    const Coord positionToAdd = {std::cos(m_drone.diraction) * m_drone.speed * dt, std::sin(m_drone.diraction) * m_drone.speed * dt};
     m_drone.position += positionToAdd;
   }
 
@@ -1060,7 +939,7 @@ private:
       case DroneState::TURNING: {
         m_drone.speed = 0.0f;
 
-        const double deltaAngle = Utils::AngleDiff(m_drone.diraction, m_drone.targetDir);
+        const double deltaAngle = AngleDiff(m_drone.diraction, m_drone.targetDir);
         const double deltaAngleAbs = std::fabs(deltaAngle);
 
         const double maxTurn = conf.angularSpeed * dt;
@@ -1072,7 +951,7 @@ private:
         }
         else {
           const double turnStep = (deltaAngle > 0.0f ? maxTurn : -maxTurn);
-          m_drone.diraction = Utils::NormalizeAngle180(m_drone.diraction + turnStep);
+          m_drone.diraction = NormalizeAngle180(m_drone.diraction + turnStep);
           m_drone.turnRemaining = (deltaAngleAbs - maxTurn) / conf.angularSpeed;
         }
         break;
