@@ -15,6 +15,7 @@ target_sources(
             include/Utils.h
             include/DroneConfig.h
             include/DroneAbstractions.h
+            include/MissionProcessor.h
             include/interfaces/IConfigLoader.h
             include/interfaces/ITargetLoader.h
             include/interfaces/IBallisticSolver.h
@@ -28,6 +29,7 @@ target_sources(
             include/loggers/JsonLogger.h
             include/loggers/LoggerFactory.h
             src/Utils.cpp
+            src/MissionProcessor.cpp
             src/config/JsonConfigLoader.cpp
             src/config/ConfigFactory.cpp
             src/providers/JsonTargetLoader.cpp
