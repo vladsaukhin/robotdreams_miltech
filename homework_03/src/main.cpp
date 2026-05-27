@@ -13,270 +13,23 @@
 
 #include "config/ConfigFactory.h"
 #include "DroneConfig.h"
+#include "DroneAbstractions.h"
 #include <nlohmann/json.hpp>
 
 #include "providers/ProviderFactory.h"
+#include "solvers/SolverFactory.h"
 
 namespace Calculation {
 
 constexpr size_t MAX_STEPS{10'000};
 constexpr double gEps{1e-6f};
-constexpr int UNDEFINED_TARGET_ID{-1};
-
-enum DroneState : uint8_t { STOPPED, ACCELERATING, DECELERATING, TURNING, MOVING };
-
-struct Drone {
-  Coord position{};
-  double diraction{};
-
-  int currentTarget{UNDEFINED_TARGET_ID};
-  double targetDir{};
-
-  DroneState state{STOPPED};
-  double speed{};
-  double turnRemaining{};
-};
-
-struct Target {
-  int idx{UNDEFINED_TARGET_ID};
-
-  double totalTime{std::numeric_limits<double>::max()};
-  Coord releasePoint{};
-
-  Coord predictedPosition{};
-  Coord aimPoint{};
-};
-
-struct BallisticsSolverContext {
-  int targetIdx{UNDEFINED_TARGET_ID};
-  const IConfigLoader& conf;
-  const Calculation::Drone& drone;
-  const ITargetLoader& targetLoader;
-  double currentTime{};
-  double acceleration{};
-};
-
-class IBallisticSolver {
-public:
-  virtual ~IBallisticSolver() = default;
-
-public:
-  virtual Target Solve(const BallisticsSolverContext&) = 0;
-};
-
-using IBallisticSolverPtr = std::unique_ptr<IBallisticSolver>;
-
-class AnalyticalSolver : public IBallisticSolver {
-public:
-  AnalyticalSolver() = default;
-
-  AnalyticalSolver(AnalyticalSolver&&) = default;
-  AnalyticalSolver& operator=(AnalyticalSolver&&) = default;
-
-private:
-  AnalyticalSolver(const AnalyticalSolver&) = delete;
-  AnalyticalSolver& operator=(const AnalyticalSolver&) = delete;
-
-public:
-  Target Solve(const BallisticsSolverContext& context) override
-  {
-    const auto& conf = context.conf.GetConfig();
-    solveCommonBallistics(conf);
-
-    Calculation::Target target{.idx = context.targetIdx};
-
-    const auto& drone = context.drone;
-
-    const auto targetVelocity = getTargetVelocity(target.idx, conf, context.targetLoader, context.currentTime);
-
-    // get current position from targets file
-    const auto currentPos = getInterpolatedTarget(context.targetLoader, target.idx, conf.arrayTimeStep, context.currentTime);
-
-    // get fire point based on current target position
-    const auto currentFirePoint = getFirePoint(drone.position, currentPos);
-
-    double totalTime =
-      computeTravelTime((currentFirePoint - drone.position).Length(), context.acceleration, drone.speed, conf.attackSpeed) + m_timeOfFlight;
-
-    const auto predictedPos = currentPos + (targetVelocity * totalTime);
-
-    const auto predictedFirePoint = getFirePoint(drone.position, predictedPos);
-
-    // get time and position based on predicted coordinates
-
-    target.totalTime =
-      computeTravelTime((predictedFirePoint - drone.position).Length(), context.acceleration, drone.speed, conf.attackSpeed) +
-      m_timeOfFlight;
-
-    target.releasePoint = predictedFirePoint;
-    target.predictedPosition = predictedPos;
-
-    target.aimPoint = getAimPoint(drone);
-
-    return target;
-  }
-
-private:
-  bool setTimeOfFlight(const AmmoParams& ammo, double altitude, double speed)
-  {
-    constexpr double g{9.81f};
-    const double V0 = speed;
-    const double sq_m = std::pow(ammo.mass, 2);
-    const double sq_d = std::pow(ammo.drag, 2);
-
-    const double a = ammo.drag * g * ammo.mass - 2 * sq_d * ammo.lift * V0;
-    const double b = -3 * g * sq_m + 3 * ammo.drag * ammo.lift * ammo.mass * V0;
-    const double c = 6 * sq_m * altitude;
-
-    const double p = -std::pow(b, 2) / (3 * std::pow(a, 2));
-    const double q = 2 * std::pow(b, 3) / (27 * std::pow(a, 3)) + c / a;
-
-    if (p >= 0) {
-      std::cerr << "No real solution for time of flight" << std::endl;
-      return false;
-    }
-
-    const double fi_arg = 3 * q * std::sqrt(-3.0f / p) / (2 * p);
-    if (fi_arg < -1 || fi_arg > 1) {
-      std::cerr << "Arccos arg has to be in the range (-1;1)" << std::endl;
-      return false;
-    }
-
-    const double fi = std::acos(fi_arg);
-    m_timeOfFlight = 2 * std::sqrt(-p / 3.0f) * std::cos((fi + 4 * M_PI) / 3.0f) - b / (3 * a);
-
-    if (m_timeOfFlight < 0) {
-      std::cerr << "timeOfFlight < 0" << std::endl;
-      return false;
-    }
-
-    return true;
-  }
-
-  bool setHorizontalFlightDistance(const AmmoParams& ammo, double speed)
-  {
-    constexpr double g{9.81f};
-    const double V0 = speed;
-    const double sq_m = std::pow(ammo.mass, 2);
-    const double sq_d = std::pow(ammo.drag, 2);
-    const double cu_d = std::pow(ammo.drag, 3);
-    const double sq_l = std::pow(ammo.lift, 2);
-    const double cu_l = std::pow(ammo.lift, 3);
-
-    const double h_part1 = V0 * m_timeOfFlight;
-    const double h_part2 = std::pow(m_timeOfFlight, 2) * ammo.drag * V0 / (2 * ammo.mass);
-    const double h_part3 =
-      std::pow(m_timeOfFlight, 3) * (6 * ammo.drag * g * ammo.lift * ammo.mass - 6 * sq_d * (sq_l - 1) * V0) / (36 * sq_m);
-
-    // clang-format off
-   const double h_part4 = std::pow(m_timeOfFlight, 4)
-      * (-6 * sq_d * g * ammo.lift * (1 + sq_l + sq_l * sq_l) * ammo.mass
-         + 3 * cu_d * sq_l * (1 + sq_l) * V0
-         + 6 * cu_d * sq_l * sq_l * (1 + sq_l) * V0)
-      / (36 * std::pow(1 + sq_l, 2) * std::pow(ammo.mass, 3));
-
-   const double h_part5 = std::pow(m_timeOfFlight, 5)
-      * (3 * cu_d * g * cu_l * ammo.mass
-         - 3 * sq_d * sq_d * sq_l * (1 + sq_l) * V0)
-      / (36 * (1 + sq_l) * sq_m * sq_m);
-    // clang-format on
-
-    m_horizontalFlightDistance = h_part1 - h_part2 + h_part3 + h_part4 + h_part5;
-
-    if (m_horizontalFlightDistance < 0) {
-      std::cerr << "horizontalFlightDistance < 0" << std::endl;
-      return false;
-    }
-
-    return true;
-  }
-
-  void solveCommonBallistics(const DroneConfig& conf)
-  {
-    if (!m_commonBallisticsSolved) {
-      if (setTimeOfFlight(conf.ammoParams, conf.altitude, conf.attackSpeed) &&
-          setHorizontalFlightDistance(conf.ammoParams, conf.attackSpeed)) {
-        m_commonBallisticsSolved = true;
-      }
-      else {
-        throw std::logic_error(std::format("Connot solve balistics for given ammo {}", conf.ammoName));
-      }
-    }
-  }
-
-  Coord getInterpolatedTarget(const ITargetLoader& targetsLoader, size_t targetIdx, double arrayTimeStep, double time)
-  {
-    const double samplePos = time / arrayTimeStep;
-    const int rawIdx = static_cast<int>(std::floor(samplePos));
-    const int idx = rawIdx % targetsLoader.GetTargetTimeStepsCount();
-    const int next = (idx + 1) % targetsLoader.GetTargetTimeStepsCount();
-    const double frac = samplePos - std::floor(samplePos);
-
-    const auto& targetTimes = targetsLoader.GetTargetTimes(targetIdx);
-    const double x = targetTimes[idx].x + (targetTimes[next].x - targetTimes[idx].x) * frac;
-    const double y = targetTimes[idx].y + (targetTimes[next].y - targetTimes[idx].y) * frac;
-    return {x, y};
-  }
-
-  Coord getTargetVelocity(size_t targetIdx, const DroneConfig& conf, const ITargetLoader& targetsLoader, double currentTime)
-  {
-    const double dt = conf.simTimeStep;
-    const auto p0 = getInterpolatedTarget(targetsLoader, targetIdx, conf.arrayTimeStep, currentTime);
-    const auto p1 = getInterpolatedTarget(targetsLoader, targetIdx, conf.arrayTimeStep, currentTime + dt);
-    return {(p1.x - p0.x) / dt, (p1.y - p0.y) / dt};
-  }
-
-  Coord getFirePoint(const Coord& dronPos, const Coord& targetPos)
-  {
-    const Coord delta = targetPos - dronPos;
-    const double distanceToTarget = delta.Length();
-    const double ratio = (distanceToTarget - m_horizontalFlightDistance) / distanceToTarget;
-
-    return dronPos + (targetPos - dronPos) * ratio;
-  }
-
-  double computeTravelTime(double distance, double acceleration, double currentSpeed, double maxSpeed)
-  {
-    if (distance <= 0.0f) {
-      return 0.0f;
-    }
-
-    if (currentSpeed >= maxSpeed) {
-      return distance / maxSpeed;
-    }
-
-    const double distanceToMaxSpeed = (maxSpeed * maxSpeed - currentSpeed * currentSpeed) / (2.0f * acceleration);
-
-    if (distance <= distanceToMaxSpeed) {
-      return (-currentSpeed + std::sqrt(currentSpeed * currentSpeed + 2.0f * acceleration * distance)) / acceleration;
-    }
-
-    const double timeToMaxSpeed = (maxSpeed - currentSpeed) / acceleration;
-    const double cruiseDistance = distance - distanceToMaxSpeed;
-    const double cruiseTime = cruiseDistance / maxSpeed;
-
-    return timeToMaxSpeed + cruiseTime;
-  }
-
-  Coord getAimPoint(const Drone& drone)
-  {
-    Coord dir{std::cos(drone.diraction), std::sin(drone.diraction)};
-
-    return drone.position + dir * m_horizontalFlightDistance;
-  }
-
-private:
-  bool m_commonBallisticsSolved{false};
-  double m_timeOfFlight{};
-  double m_horizontalFlightDistance{};
-};
 
 class ILogger {
 public:
   virtual ~ILogger() = default;
 
 public:
-  virtual void RecordStep(const Calculation::Drone& drone, const Calculation::Target& target) = 0;
+  virtual void RecordStep(const Drone& drone, const Target& target) = 0;
   virtual void DumpLog(std::string_view dataFolderPath, size_t lastStepIdx) = 0;
   virtual void Reset() = 0;
 };
@@ -295,7 +48,7 @@ private:
   JsonLogger& operator=(const JsonLogger&) = delete;
 
 public:
-  void RecordStep(const Calculation::Drone& drone, const Calculation::Target& target) override
+  void RecordStep(const Drone& drone, const Target& target) override
   {
     SimStep step;
     step.pos = drone.position;
@@ -349,13 +102,13 @@ public:
 
 private:
   struct SimStep {
-    Coord pos{};                      // позиція дрона
-    double direction{};               // напрямок (рад)
-    Calculation::DroneState state{};  // стан автомата (0-4)
-    int targetIdx{};                  // індекс поточної цілі
-    Coord dropPoint{};                // точка скиду (куди летить дрон)
-    Coord aimPoint{};                 // куди впаде бомба (якщо скинути зараз)
-    Coord predictedTarget{};          // прогнозована позиція цілі
+    Coord pos{};              // позиція дрона
+    double direction{};       // напрямок (рад)
+    DroneState state{};       // стан автомата (0-4)
+    int targetIdx{};          // індекс поточної цілі
+    Coord dropPoint{};        // точка скиду (куди летить дрон)
+    Coord aimPoint{};         // куди впаде бомба (якщо скинути зараз)
+    Coord predictedTarget{};  // прогнозована позиція цілі
   };
 
 private:
@@ -410,7 +163,7 @@ public:
 
     m_drone.position = m_configLoader->GetConfig().startPos;
     m_drone.diraction = m_configLoader->GetConfig().initialDir;
-    m_drone.state = Calculation::STOPPED;
+    m_drone.state = DroneState::STOPPED;
 
     m_acceleration = std::pow(m_configLoader->GetConfig().attackSpeed, 2) / (2.0f * m_configLoader->GetConfig().accelerationPath);
     m_dataFolderPath = dataFolderPath;
@@ -430,7 +183,7 @@ public:
   {
     m_drone.position = m_configLoader->GetConfig().startPos;
     m_drone.diraction = m_configLoader->GetConfig().initialDir;
-    m_drone.state = Calculation::STOPPED;
+    m_drone.state = DroneState::STOPPED;
     m_currentTime = 0.0;
     m_step = 0;
 
@@ -446,7 +199,7 @@ public:
     const auto& conf = m_configLoader->GetConfig();
 
     while (m_step < Calculation::MAX_STEPS) {
-      Calculation::Target bestTarget{};
+      Target bestTarget{};
       m_currentProcessedTargetID = 0;
 
       while (hasNext()) {
@@ -644,19 +397,6 @@ private:
   double m_acceleration{};
 };
 
-enum class SolverType { ANALYTICAL };
-
-IBallisticSolverPtr CreateSolver(SolverType type)
-{
-  switch (type) {
-    case SolverType::ANALYTICAL:
-      return std::make_unique<AnalyticalSolver>();
-    default:
-      throw std::out_of_range(
-        std::format("CreateSolver factory cannot create a Sorver for type {}", static_cast<std::underlying_type_t<SolverType>>(type)));
-  }
-}
-
 enum class LoggerType { JSON_FILE };
 
 ILoggerPtr CreateLogger(LoggerType type)
@@ -683,7 +423,7 @@ int main(int argc, char** argv)
   auto configLoader = CreateLoader(ConfigLoaderType::JSON_FILE);
   auto targetLoader = CreateTargetLoader(TargetLoaderType::JSON_FILE);
   auto logger = Calculation::CreateLogger(Calculation::LoggerType::JSON_FILE);
-  auto solver = Calculation::CreateSolver(Calculation::SolverType::ANALYTICAL);
+  auto solver = CreateSolver(SolverType::ANALYTICAL);
 
   try {
     Calculation::MissionProcessor missionProcessor(std::move(configLoader), std::move(targetLoader), std::move(solver), std::move(logger));

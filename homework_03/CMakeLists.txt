@@ -14,17 +14,23 @@ target_sources(
     PRIVATE include/Coords.hpp
             include/Utils.h
             include/DroneConfig.h
+            include/DroneAbstractions.h
             include/interfaces/IConfigLoader.h
             include/interfaces/ITargetLoader.h
+            include/interfaces/IBallisticSolver.h
             include/config/JsonConfigLoader.h
             include/config/ConfigFactory.h
             include/providers/JsonTargetLoader.h
             include/providers/ProviderFactory.h
+            include/solvers/AnalyticalSolver.h
+            include/solvers/SolverFactory.h
             src/Utils.cpp
             src/config/JsonConfigLoader.cpp
             src/config/ConfigFactory.cpp
             src/providers/JsonTargetLoader.cpp
             src/providers/ProviderFactory.cpp
+            src/solvers/AnalyticalSolver.cpp
+            src/solvers/SolverFactory.cpp
             src/main.cpp)
 
 target_include_directories(homework3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
