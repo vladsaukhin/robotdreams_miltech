@@ -18,102 +18,12 @@
 
 #include "providers/ProviderFactory.h"
 #include "solvers/SolverFactory.h"
+#include "loggers/LoggerFactory.h"
 
 namespace Calculation {
 
 constexpr size_t MAX_STEPS{10'000};
 constexpr double gEps{1e-6f};
-
-class ILogger {
-public:
-  virtual ~ILogger() = default;
-
-public:
-  virtual void RecordStep(const Drone& drone, const Target& target) = 0;
-  virtual void DumpLog(std::string_view dataFolderPath, size_t lastStepIdx) = 0;
-  virtual void Reset() = 0;
-};
-
-using ILoggerPtr = std::unique_ptr<ILogger>;
-
-class JsonLogger : public ILogger {
-public:
-  JsonLogger() = default;
-
-  JsonLogger(JsonLogger&&) = default;
-  JsonLogger& operator=(JsonLogger&&) = default;
-
-private:
-  JsonLogger(const JsonLogger&) = delete;
-  JsonLogger& operator=(const JsonLogger&) = delete;
-
-public:
-  void RecordStep(const Drone& drone, const Target& target) override
-  {
-    SimStep step;
-    step.pos = drone.position;
-    step.direction = drone.diraction;
-    step.state = drone.state;
-    step.targetIdx = drone.currentTarget;
-
-    step.dropPoint = target.releasePoint;
-    step.aimPoint = target.aimPoint;
-    step.predictedTarget = target.predictedPosition;
-
-    m_simSteps.push_back(std::move(step));
-  }
-
-  void DumpLog(std::string_view dataFolderPath, size_t lastStepIdx) override
-  {
-    try {
-      if (lastStepIdx > m_simSteps.size()) {
-        throw std::runtime_error("lastStepIdx is greater than log size.");
-      }
-
-      const auto logPath = dataFolderPath.data() + std::string("/simulation.json");
-      std::ofstream output(logPath);
-      if (!output) {
-        throw std::runtime_error("Failed to open simulation.json for writing");
-      }
-
-      nlohmann::json out;
-      out["totalSteps"] = lastStepIdx;
-      out["steps"] = nlohmann::json::array();
-      for (const auto& logStep : m_simSteps) {
-        nlohmann::json step;
-        step["position"] = {{"x", logStep.pos.x}, {"y", logStep.pos.y}};
-        step["direction"] = logStep.direction;
-        step["state"] = static_cast<int>(logStep.state);
-        step["targetIndex"] = logStep.targetIdx;
-        step["dropPoint"] = {{"x", logStep.dropPoint.x}, {"y", logStep.dropPoint.y}};
-        step["aimPoint"] = {{"x", logStep.aimPoint.x}, {"y", logStep.aimPoint.y}};
-        step["predictedTarget"] = {{"x", logStep.predictedTarget.x}, {"y", logStep.predictedTarget.y}};
-        out["steps"].push_back(std::move(step));
-      }
-
-      output << out.dump(2);
-    }
-    catch (const std::exception& e) {
-      std::cerr << "JsonLogger: " << e.what() << '\n';
-    }
-  }
-
-  void Reset() override { m_simSteps.clear(); }
-
-private:
-  struct SimStep {
-    Coord pos{};              // позиція дрона
-    double direction{};       // напрямок (рад)
-    DroneState state{};       // стан автомата (0-4)
-    int targetIdx{};          // індекс поточної цілі
-    Coord dropPoint{};        // точка скиду (куди летить дрон)
-    Coord aimPoint{};         // куди впаде бомба (якщо скинути зараз)
-    Coord predictedTarget{};  // прогнозована позиція цілі
-  };
-
-private:
-  std::vector<SimStep> m_simSteps{};
-};
 
 class MissionProcessor {
 public:
@@ -397,19 +307,6 @@ private:
   double m_acceleration{};
 };
 
-enum class LoggerType { JSON_FILE };
-
-ILoggerPtr CreateLogger(LoggerType type)
-{
-  switch (type) {
-    case LoggerType::JSON_FILE:
-      return std::make_unique<JsonLogger>();
-    default:
-      throw std::out_of_range(
-        std::format("CreateLogger factory cannot create a Logger for type {}", static_cast<std::underlying_type_t<LoggerType>>(type)));
-  }
-}
-
 }  // namespace Calculation
 
 int main(int argc, char** argv)
@@ -422,7 +319,7 @@ int main(int argc, char** argv)
 
   auto configLoader = CreateLoader(ConfigLoaderType::JSON_FILE);
   auto targetLoader = CreateTargetLoader(TargetLoaderType::JSON_FILE);
-  auto logger = Calculation::CreateLogger(Calculation::LoggerType::JSON_FILE);
+  auto logger = CreateLogger(LoggerType::JSON_FILE);
   auto solver = CreateSolver(SolverType::ANALYTICAL);
 
   try {

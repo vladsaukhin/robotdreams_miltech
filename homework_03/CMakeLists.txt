@@ -18,12 +18,15 @@ target_sources(
             include/interfaces/IConfigLoader.h
             include/interfaces/ITargetLoader.h
             include/interfaces/IBallisticSolver.h
+            include/interfaces/ILogger.h
             include/config/JsonConfigLoader.h
             include/config/ConfigFactory.h
             include/providers/JsonTargetLoader.h
             include/providers/ProviderFactory.h
             include/solvers/AnalyticalSolver.h
             include/solvers/SolverFactory.h
+            include/loggers/JsonLogger.h
+            include/loggers/LoggerFactory.h
             src/Utils.cpp
             src/config/JsonConfigLoader.cpp
             src/config/ConfigFactory.cpp
@@ -31,6 +34,8 @@ target_sources(
             src/providers/ProviderFactory.cpp
             src/solvers/AnalyticalSolver.cpp
             src/solvers/SolverFactory.cpp
+            src/loggers/JsonLogger.cpp
+            src/loggers/LoggerFactory.cpp
             src/main.cpp)
 
 target_include_directories(homework3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
