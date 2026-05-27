@@ -15,11 +15,16 @@ target_sources(
             include/Utils.h
             include/DroneConfig.h
             include/interfaces/IConfigLoader.h
+            include/interfaces/ITargetLoader.h
             include/config/JsonConfigLoader.h
             include/config/ConfigFactory.h
+            include/providers/JsonTargetLoader.h
+            include/providers/ProviderFactory.h
             src/Utils.cpp
             src/config/JsonConfigLoader.cpp
             src/config/ConfigFactory.cpp
+            src/providers/JsonTargetLoader.cpp
+            src/providers/ProviderFactory.cpp
             src/main.cpp)
 
 target_include_directories(homework3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

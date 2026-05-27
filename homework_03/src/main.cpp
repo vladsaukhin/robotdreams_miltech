@@ -15,146 +15,7 @@
 #include "DroneConfig.h"
 #include <nlohmann/json.hpp>
 
-namespace TargetsParams {
-
-class ITargetLoader {
-public:
-  virtual ~ITargetLoader() = default;
-
-public:
-  virtual bool Load(std::string_view dataFolderPath) = 0;
-
-  virtual size_t GetTargetCount() const = 0;
-  virtual size_t GetTargetTimeStepsCount() const = 0;
-
-  virtual const ListOfCoords& GetTargetTimes(size_t targetIdx) const = 0;
-  virtual const Coord& GetTargetCoordByTime(size_t targetIdx, size_t timeIdx) const = 0;
-};
-
-using ITargetLoaderPtr = std::unique_ptr<ITargetLoader>;
-
-class JsonTargetLoader : public ITargetLoader {
-public:
-  JsonTargetLoader() = default;
-
-  JsonTargetLoader(JsonTargetLoader&&) = default;
-  JsonTargetLoader& operator=(JsonTargetLoader&&) = default;
-
-private:
-  JsonTargetLoader(const JsonTargetLoader&) = delete;
-  JsonTargetLoader& operator=(const JsonTargetLoader&) = delete;
-
-public:
-  bool Load(std::string_view dataFolderPath) override { return readTargets(dataFolderPath); }
-
-  size_t GetTargetCount() const override { return m_targetCount; }
-  size_t GetTargetTimeStepsCount() const override { return m_targetTimeStepsCount; }
-
-  const ListOfCoords& GetTargetTimes(size_t targetIdx) const override { return m_targetsInTime.at(targetIdx); }
-  const Coord& GetTargetCoordByTime(size_t targetIdx, size_t timeIdx) const override { return m_targetsInTime.at(targetIdx).at(timeIdx); }
-
-private:
-  bool readTargets(std::string_view dataFolderPath)
-  {
-    const auto targetsPath = dataFolderPath.data() + std::string("/targets.json");
-    std::ifstream input(targetsPath);
-    if (!input) {
-      std::cerr << std::format("Can't open {}", targetsPath) << std::endl;
-      return false;
-    }
-
-    try {
-      nlohmann::json j = nlohmann::json::parse(input);
-
-      if (!j.is_object()) {
-        throw std::runtime_error("Root must be an object");
-      }
-
-      m_targetCount = j.at("targetCount").get<size_t>();
-      m_targetTimeStepsCount = j.at("timeSteps").get<size_t>();
-
-      const auto& targets = j.at("targets");
-
-      if (!targets.is_array()) {
-        throw std::runtime_error("'targets' must be array");
-      }
-
-      if (targets.size() != m_targetCount) {
-        throw std::runtime_error("targets.size != targetCount");
-      }
-
-      m_targetsInTime.reserve(m_targetCount);  // preallocate memory for targets
-
-      ListOfCoords targetPositions;
-      targetPositions.reserve(m_targetTimeStepsCount);
-
-      for (size_t i = 0; i < targets.size(); ++i) {
-        const auto& target = targets.at(i);
-
-        // validate
-        if (!target.is_object()) {
-          throw std::runtime_error("target must be object");
-        }
-
-        const auto& positions = target.at("positions");
-
-        if (!positions.is_array()) {
-          throw std::runtime_error("positions must be array");
-        }
-
-        if (positions.size() != m_targetTimeStepsCount) {
-          throw std::runtime_error("positions.size != timeSteps");
-        }
-
-        // read
-        for (size_t k = 0; k < positions.size(); ++k) {
-          const auto& position = positions.at(k);
-
-          if (!position.is_object()) {
-            throw std::runtime_error("position must be object");
-          }
-
-          const double x = position.at("x").get<double>();
-          const double y = position.at("y").get<double>();
-
-          if (x < 0 || y < 0) {
-            throw std::runtime_error("Coords must be non-negative");
-          }
-
-          targetPositions.push_back({x, y});
-        }
-
-        m_targetsInTime.push_back(std::move(targetPositions));  // resets targetPositions
-      }
-    }
-    catch (const std::exception& e) {
-      std::cerr << "JsonTargetProvider error: " << e.what() << '\n';
-      return false;
-    }
-
-    return true;
-  }
-
-private:
-  size_t m_targetCount{};
-  size_t m_targetTimeStepsCount{};
-  std::vector<ListOfCoords> m_targetsInTime{};
-};
-
-enum class TargetLoaderType { JSON_FILE };
-
-ITargetLoaderPtr CreateTargetLoader(TargetLoaderType type)
-{
-  switch (type) {
-    case TargetLoaderType::JSON_FILE:
-      return std::make_unique<JsonTargetLoader>();
-    default:
-      throw std::out_of_range(std::format("CreateTargetLoader factory cannot create a Loader for type {}",
-                                          static_cast<std::underlying_type_t<TargetLoaderType>>(type)));
-  }
-}
-
-}  // namespace TargetsParams
+#include "providers/ProviderFactory.h"
 
 namespace Calculation {
 
@@ -190,7 +51,7 @@ struct BallisticsSolverContext {
   int targetIdx{UNDEFINED_TARGET_ID};
   const IConfigLoader& conf;
   const Calculation::Drone& drone;
-  const TargetsParams::ITargetLoader& targetLoader;
+  const ITargetLoader& targetLoader;
   double currentTime{};
   double acceleration{};
 };
@@ -343,7 +204,7 @@ private:
     }
   }
 
-  Coord getInterpolatedTarget(const TargetsParams::ITargetLoader& targetsLoader, size_t targetIdx, double arrayTimeStep, double time)
+  Coord getInterpolatedTarget(const ITargetLoader& targetsLoader, size_t targetIdx, double arrayTimeStep, double time)
   {
     const double samplePos = time / arrayTimeStep;
     const int rawIdx = static_cast<int>(std::floor(samplePos));
@@ -357,7 +218,7 @@ private:
     return {x, y};
   }
 
-  Coord getTargetVelocity(size_t targetIdx, const DroneConfig& conf, const TargetsParams::ITargetLoader& targetsLoader, double currentTime)
+  Coord getTargetVelocity(size_t targetIdx, const DroneConfig& conf, const ITargetLoader& targetsLoader, double currentTime)
   {
     const double dt = conf.simTimeStep;
     const auto p0 = getInterpolatedTarget(targetsLoader, targetIdx, conf.arrayTimeStep, currentTime);
@@ -503,10 +364,7 @@ private:
 
 class MissionProcessor {
 public:
-  MissionProcessor(IConfigLoaderPtr configLoader,
-                   TargetsParams::ITargetLoaderPtr targetLoader,
-                   IBallisticSolverPtr ballisticSolver,
-                   ILoggerPtr logger)
+  MissionProcessor(IConfigLoaderPtr configLoader, ITargetLoaderPtr targetLoader, IBallisticSolverPtr ballisticSolver, ILoggerPtr logger)
   {
     if (!configLoader) {
       throw std::logic_error("ConfigLoader is not initialized");
@@ -770,7 +628,7 @@ private:
 
 private:
   IConfigLoaderPtr m_configLoader;
-  TargetsParams::ITargetLoaderPtr m_targetLoader;
+  ITargetLoaderPtr m_targetLoader;
   IBallisticSolverPtr m_ballisticSolver;  // ptr here to be able to swap solvers on the fly
   ILoggerPtr m_logger;
 
@@ -823,7 +681,7 @@ int main(int argc, char** argv)
   }
 
   auto configLoader = CreateLoader(ConfigLoaderType::JSON_FILE);
-  auto targetLoader = TargetsParams::CreateTargetLoader(TargetsParams::TargetLoaderType::JSON_FILE);
+  auto targetLoader = CreateTargetLoader(TargetLoaderType::JSON_FILE);
   auto logger = Calculation::CreateLogger(Calculation::LoggerType::JSON_FILE);
   auto solver = Calculation::CreateSolver(Calculation::SolverType::ANALYTICAL);
 
