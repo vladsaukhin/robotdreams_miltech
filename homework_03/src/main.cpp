@@ -1014,7 +1014,9 @@ public:
 
   ~MissionProcessor()
   {
-    // do not delete here, MissionProcessor is not supposed to controle lifetime of external objects
+    if (m_step < Calculation::MAX_STEPS) {
+      m_logger->DumpLog(m_dataFolderPath, m_step);
+    }
   }
 
 private:
@@ -1064,46 +1066,61 @@ public:
     m_logger->Reset();
   }
 
-  void ProcessMission()
+  bool HasNext()
   {
     if (!m_initialized) {
       throw std::logic_error("MissionProcessor is not initialized");
     }
 
-    const auto& conf = m_configLoader->GetConfig();
+    return !m_wasHit && m_step < Calculation::MAX_STEPS;
+  }
 
-    while (m_step < Calculation::MAX_STEPS) {
-      Calculation::Target bestTarget{};
-      m_currentProcessedTargetID = 0;
-
-      while (hasNext()) {
-        auto target = step();
-        if (target.totalTime < bestTarget.totalTime) {
-          bestTarget = std::move(target);
-        }
-      }
-
-      adjustDroneStateToTarget(bestTarget);
-
-      moveDrone();
-
-      m_logger->RecordStep(m_step, m_drone, bestTarget);
-
-      // release point
-      if (m_drone.state == MOVING && (bestTarget.releasePoint - m_drone.position).Length() <= 0.25 * conf.hitRadius) {
-        break;
-      }
-
-      // move
-      m_currentTime += conf.simTimeStep;
-      m_step += 1;
-    }
-
+  void Step()
+  {
     if (m_step == Calculation::MAX_STEPS) {
       throw std::runtime_error(std::format("Simulation exceeded {} steps.\n", Calculation::MAX_STEPS));
     }
 
-    m_logger->DumpLog(m_dataFolderPath, m_step);
+    const auto& conf = m_configLoader->GetConfig();
+
+    Calculation::Target bestTarget{};
+    m_currentProcessedTargetID = 0;
+
+    while (m_currentProcessedTargetID < static_cast<int>(m_targetLoader->GetTargetCount())) {
+      BallisticsSolverContext context{.targetIdx = m_currentProcessedTargetID,
+                                      .conf = *m_configLoader,
+                                      .drone = m_drone,
+                                      .targetLoader = *m_targetLoader,
+                                      .currentTime = m_currentTime,
+                                      .acceleration = m_acceleration};
+      auto target = m_ballisticSolver->Solve(context);
+
+      if (m_drone.currentTarget != UNDEFINED_TARGET_ID && m_drone.currentTarget != m_currentProcessedTargetID) {
+        target.totalTime += getStopTime();
+      }
+
+      m_currentProcessedTargetID++;
+
+      if (target.totalTime < bestTarget.totalTime) {
+        bestTarget = std::move(target);
+      }
+    }
+
+    adjustDroneStateToTarget(bestTarget);
+
+    moveDrone();
+
+    m_logger->RecordStep(m_step, m_drone, bestTarget);
+
+    // release point
+    if (m_drone.state == MOVING && (bestTarget.releasePoint - m_drone.position).Length() <= 0.25 * conf.hitRadius) {
+      m_wasHit = true;
+      return;
+    }
+
+    // move
+    m_currentTime += conf.simTimeStep;
+    m_step += 1;
   }
 
 private:
@@ -1124,30 +1141,6 @@ private:
       default:
         return 0.0f;
     }
-  }
-
-  // required method ?
-  bool hasNext() { return m_currentProcessedTargetID < static_cast<int>(m_targetLoader->GetTargetCount()); }
-
-  // required method ?
-  Target step()
-  {
-    BallisticsSolverContext context{.targetIdx = m_currentProcessedTargetID,
-                                    .conf = *m_configLoader,
-                                    .drone = m_drone,
-                                    .targetLoader = *m_targetLoader,
-                                    .currentTime = m_currentTime,
-                                    .acceleration = m_acceleration};
-
-    auto target = m_ballisticSolver->Solve(context);
-
-    if (m_drone.currentTarget != UNDEFINED_TARGET_ID && m_drone.currentTarget != m_currentProcessedTargetID) {
-      target.totalTime += getStopTime();
-    }
-
-    m_currentProcessedTargetID++;
-
-    return target;
   }
 
   void adjustDroneStateToTarget(const Target& target)
@@ -1263,6 +1256,7 @@ private:
   Drone m_drone{};
   size_t m_step{0};
   double m_currentTime{};
+  bool m_wasHit{};
 
   double m_acceleration{};
 };
@@ -1315,7 +1309,9 @@ int main(int argc, char** argv)
 
     missionProcessor.Init(pathToDirWithFiles);
 
-    missionProcessor.ProcessMission();
+    while (missionProcessor.HasNext()) {
+      missionProcessor.Step();
+    }
   }
   catch (const std::exception& e) {
     std::cerr << e.what() << std::endl;
