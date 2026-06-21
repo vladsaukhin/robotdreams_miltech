@@ -1,5 +1,8 @@
 #include <exception>
 #include <iostream>
+#include <stdexcept>
+#include <string_view>
+#include <format>
 
 #include "config/ConfigFactory.h"
 #include "providers/ProviderFactory.h"
@@ -12,6 +15,7 @@ int main(int argc, char** argv)
 {
   // The program expects exactly one argument: a path to data folder
   if (argc != 2) {
+    std::cerr << "Usage: " << argv[0] << " <path_to_dir_with_files>\n";
     std::cerr << "Usage: " << argv[0] << " <path_to_dir_with_files>\n";
     return 1;
   }
@@ -33,6 +37,5 @@ int main(int argc, char** argv)
   catch (const std::exception& e) {
     std::cerr << e.what() << std::endl;
   }
-
   return 0;
 }
