@@ -26,7 +26,9 @@ int main(int argc, char** argv)
 
     missionProcessor.Init(argv[1]);
 
-    missionProcessor.ProcessMission();
+    while (missionProcessor.HasNext()) {
+      missionProcessor.Step();
+    }
   }
   catch (const std::exception& e) {
     std::cerr << e.what() << std::endl;
