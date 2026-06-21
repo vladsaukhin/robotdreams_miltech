@@ -7,7 +7,40 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_executable(homework3 src/main.cpp)
+add_executable(homework3)
+
+target_sources(
+    homework3
+    PRIVATE include/Coords.hpp
+            include/Utils.h
+            include/DroneConfig.h
+            include/DroneAbstractions.h
+            include/MissionProcessor.h
+            include/interfaces/IConfigLoader.h
+            include/interfaces/ITargetLoader.h
+            include/interfaces/IBallisticSolver.h
+            include/interfaces/ILogger.h
+            include/config/JsonConfigLoader.h
+            include/config/ConfigFactory.h
+            include/providers/JsonTargetLoader.h
+            include/providers/ProviderFactory.h
+            include/solvers/AnalyticalSolver.h
+            include/solvers/SolverFactory.h
+            include/loggers/JsonLogger.h
+            include/loggers/LoggerFactory.h
+            src/Utils.cpp
+            src/MissionProcessor.cpp
+            src/config/JsonConfigLoader.cpp
+            src/config/ConfigFactory.cpp
+            src/providers/JsonTargetLoader.cpp
+            src/providers/ProviderFactory.cpp
+            src/solvers/AnalyticalSolver.cpp
+            src/solvers/SolverFactory.cpp
+            src/loggers/JsonLogger.cpp
+            src/loggers/LoggerFactory.cpp
+            src/main.cpp)
+
+target_include_directories(homework3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_compile_options(homework3 PRIVATE -Wall -Wextra -pedantic)
 
