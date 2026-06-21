@@ -20,6 +20,8 @@ target_sources(
             include/interfaces/ITargetLoader.h
             include/interfaces/IBallisticSolver.h
             include/interfaces/ILogger.h
+            include/interfaces/IDroneState.h
+            include/interfaces/DroneStateContext.h
             include/config/JsonConfigLoader.h
             include/config/ConfigFactory.h
             include/providers/JsonTargetLoader.h
@@ -28,6 +30,11 @@ target_sources(
             include/solvers/SolverFactory.h
             include/loggers/JsonLogger.h
             include/loggers/LoggerFactory.h
+            include/droneStates/StateAccelerating.h
+            include/droneStates/StateDecelerating.h
+            include/droneStates/StateMoving.h
+            include/droneStates/StateStopped.h
+            include/droneStates/StateTurning.h
             src/Utils.cpp
             src/MissionProcessor.cpp
             src/config/JsonConfigLoader.cpp
@@ -38,6 +45,11 @@ target_sources(
             src/solvers/SolverFactory.cpp
             src/loggers/JsonLogger.cpp
             src/loggers/LoggerFactory.cpp
+            src/droneStates/StateAccelerating.cpp
+            src/droneStates/StateDecelerating.cpp
+            src/droneStates/StateMoving.cpp
+            src/droneStates/StateStopped.cpp
+            src/droneStates/StateTurning.cpp
             src/main.cpp)
 
 target_include_directories(homework3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)

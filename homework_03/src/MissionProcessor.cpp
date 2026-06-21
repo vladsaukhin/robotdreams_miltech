@@ -7,10 +7,12 @@
 #include "DroneConfig.h"
 #include "DroneAbstractions.h"
 
+#include "droneStates/StateStopped.h"
+#include "interfaces/DroneStateContext.h"
+
 namespace {
 
 constexpr size_t MAX_STEPS{10'000};
-constexpr double gEps{1e-6f};
 
 }  // namespace
 
@@ -60,7 +62,8 @@ void MissionProcessor::Init(std::string_view dataFolderPath)
 
   m_drone.position = m_configLoader->GetConfig().startPos;
   m_drone.diraction = m_configLoader->GetConfig().initialDir;
-  m_drone.state = DroneState::STOPPED;
+
+  m_drone.state = std::make_unique<StateStopped>();
 
   m_acceleration = std::pow(m_configLoader->GetConfig().attackSpeed, 2) / (2.0f * m_configLoader->GetConfig().accelerationPath);
   m_dataFolderPath = dataFolderPath;
@@ -80,7 +83,7 @@ void MissionProcessor::Reset()
 {
   m_drone.position = m_configLoader->GetConfig().startPos;
   m_drone.diraction = m_configLoader->GetConfig().initialDir;
-  m_drone.state = DroneState::STOPPED;
+  m_drone.state = std::make_unique<StateStopped>();
   m_currentTime = 0.0;
   m_step = 0;
 
@@ -117,7 +120,7 @@ void MissionProcessor::Step()
     auto target = m_ballisticSolver->Solve(context);
 
     if (m_drone.currentTarget != UNDEFINED_TARGET_ID && m_drone.currentTarget != currentTargetIdx) {
-      target.totalTime += getStopTime();
+      target.totalTime += m_drone.state->GetStopTime();
     }
 
     if (target.totalTime < bestTarget.totalTime) {
@@ -125,137 +128,27 @@ void MissionProcessor::Step()
     }
   }
 
-  adjustDroneStateToTarget(bestTarget);
+  // adjust drone state to target
+  m_drone.currentTarget = bestTarget.idx;
+  const auto targetDir = bestTarget.releasePoint - m_drone.position;
+  m_drone.targetDir = NormalizeAngle180(std::atan2(targetDir.y, targetDir.x));
 
-  moveDrone();
+  DroneStateContext ctx{.drone = m_drone, .cfg = conf, .acceleration = m_acceleration};
+  auto nextState = m_drone.state->Execute(ctx);
+
+  // move
+  if (nextState) {
+    m_drone.state = std::move(nextState);
+  }
 
   m_logger->RecordStep(m_drone, bestTarget);
 
   // release point
-  if (m_drone.state == MOVING && (bestTarget.releasePoint - m_drone.position).Length() <= 0.25 * conf.hitRadius) {
+  if ((bestTarget.releasePoint - m_drone.position).Length() <= 0.25 * conf.hitRadius) {
     m_wasHit = true;
     return;
   }
 
-  // move
   m_currentTime += conf.simTimeStep;
   m_step += 1;
-}
-
-double MissionProcessor::getStopTime() const
-{
-  switch (m_drone.state) {
-    case STOPPED:
-      return 0.0f;
-
-    case ACCELERATING:
-    case MOVING:
-    case DECELERATING:
-      return m_drone.speed / m_acceleration;
-
-    case TURNING:
-      return m_drone.turnRemaining;
-
-    default:
-      return 0.0f;
-  }
-}
-
-void MissionProcessor::adjustDroneStateToTarget(const Target& target)
-{
-  const auto& conf = m_configLoader->GetConfig();
-
-  m_drone.currentTarget = target.idx;
-  const auto targetDir = target.releasePoint - m_drone.position;
-  m_drone.targetDir = NormalizeAngle180(std::atan2(targetDir.y, targetDir.x));
-
-  const double deltaAngle = std::fabs(AngleDiff(m_drone.diraction, m_drone.targetDir));
-
-  if (deltaAngle > conf.turnThreshold) {
-    if (m_drone.state == DroneState::MOVING || m_drone.state == DroneState::ACCELERATING) {
-      m_drone.state = DECELERATING;  // plan deceleration
-    }
-    else if (m_drone.state == DroneState::STOPPED) {
-      // plan turning
-      m_drone.state = TURNING;
-      m_drone.turnRemaining = deltaAngle / conf.angularSpeed;
-    }
-  }
-  else {
-    // change diraction without stopping
-    m_drone.diraction = m_drone.targetDir;
-
-    if (m_drone.speed < conf.attackSpeed - gEps) {
-      m_drone.state = ACCELERATING;
-    }
-    else {
-      m_drone.state = MOVING;
-    }
-  }
-}
-
-void MissionProcessor::changeDronePosition(double dt)
-{
-  const Coord positionToAdd = {std::cos(m_drone.diraction) * m_drone.speed * dt, std::sin(m_drone.diraction) * m_drone.speed * dt};
-  m_drone.position += positionToAdd;
-}
-
-void MissionProcessor::moveDrone()
-{
-  const auto& conf = m_configLoader->GetConfig();
-
-  const double dt = conf.simTimeStep;
-
-  switch (m_drone.state) {
-    case DroneState::STOPPED: {
-      m_drone.speed = 0.0f;
-      break;
-    }
-    case DroneState::ACCELERATING: {
-      m_drone.speed += m_acceleration * dt;
-
-      if (m_drone.speed >= conf.attackSpeed) {
-        m_drone.speed = conf.attackSpeed;
-        m_drone.state = MOVING;
-      }
-
-      changeDronePosition(dt);
-      break;
-    }
-    case DroneState::DECELERATING: {
-      m_drone.speed -= m_acceleration * dt;
-
-      if (m_drone.speed <= gEps) {
-        m_drone.speed = 0.0f;
-        m_drone.state = STOPPED;
-      }
-
-      changeDronePosition(dt);
-      break;
-    }
-    case DroneState::TURNING: {
-      m_drone.speed = 0.0f;
-
-      const double deltaAngle = AngleDiff(m_drone.diraction, m_drone.targetDir);
-      const double deltaAngleAbs = std::fabs(deltaAngle);
-
-      const double maxTurn = conf.angularSpeed * dt;
-
-      if (deltaAngleAbs <= maxTurn + gEps) {
-        m_drone.diraction = m_drone.targetDir;
-        m_drone.turnRemaining = 0.0f;
-        m_drone.state = ACCELERATING;
-      }
-      else {
-        const double turnStep = (deltaAngle > 0.0f ? maxTurn : -maxTurn);
-        m_drone.diraction = NormalizeAngle180(m_drone.diraction + turnStep);
-        m_drone.turnRemaining = (deltaAngleAbs - maxTurn) / conf.angularSpeed;
-      }
-      break;
-    }
-    case DroneState::MOVING: {
-      changeDronePosition(dt);
-      break;
-    }
-  }
 }
