@@ -41,6 +41,13 @@ MissionProcessor::MissionProcessor(IConfigLoaderPtr configLoader,
   m_logger = std::move(logger);
 }
 
+MissionProcessor::~MissionProcessor()
+{
+  if (m_step < MAX_STEPS) {
+    m_logger->DumpLog(m_dataFolderPath, m_step);
+  }
+}
+
 void MissionProcessor::Init(std::string_view dataFolderPath)
 {
   if (!m_configLoader->Load(dataFolderPath)) {
@@ -80,46 +87,59 @@ void MissionProcessor::Reset()
   m_logger->Reset();
 }
 
-void MissionProcessor::ProcessMission()
+bool MissionProcessor::HasNext()
 {
   if (!m_initialized) {
     throw std::logic_error("MissionProcessor is not initialized");
   }
 
-  const auto& conf = m_configLoader->GetConfig();
+  return !m_wasHit && m_step < MAX_STEPS;
+}
 
-  while (m_step < MAX_STEPS) {
-    Target bestTarget{};
-    m_currentProcessedTargetID = 0;
-
-    while (hasNext()) {
-      auto target = step();
-      if (target.totalTime < bestTarget.totalTime) {
-        bestTarget = std::move(target);
-      }
-    }
-
-    adjustDroneStateToTarget(bestTarget);
-
-    moveDrone();
-
-    m_logger->RecordStep(m_drone, bestTarget);
-
-    // release point
-    if (m_drone.state == MOVING && (bestTarget.releasePoint - m_drone.position).Length() <= 0.25 * conf.hitRadius) {
-      break;
-    }
-
-    // move
-    m_currentTime += conf.simTimeStep;
-    m_step += 1;
-  }
-
+void MissionProcessor::Step()
+{
   if (m_step == MAX_STEPS) {
     throw std::runtime_error(std::format("Simulation exceeded {} steps.\n", MAX_STEPS));
   }
 
-  m_logger->DumpLog(m_dataFolderPath, m_step);
+  const auto& conf = m_configLoader->GetConfig();
+
+  Target bestTarget{};
+
+  for (int currentTargetIdx = 0; currentTargetIdx < static_cast<int>(m_targetLoader->GetTargetCount()); ++currentTargetIdx) {
+    BallisticsSolverContext context{.targetIdx = currentTargetIdx,
+                                    .conf = *m_configLoader,
+                                    .drone = m_drone,
+                                    .targetLoader = *m_targetLoader,
+                                    .currentTime = m_currentTime,
+                                    .acceleration = m_acceleration};
+
+    auto target = m_ballisticSolver->Solve(context);
+
+    if (m_drone.currentTarget != UNDEFINED_TARGET_ID && m_drone.currentTarget != currentTargetIdx) {
+      target.totalTime += getStopTime();
+    }
+
+    if (target.totalTime < bestTarget.totalTime) {
+      bestTarget = std::move(target);
+    }
+  }
+
+  adjustDroneStateToTarget(bestTarget);
+
+  moveDrone();
+
+  m_logger->RecordStep(m_drone, bestTarget);
+
+  // release point
+  if (m_drone.state == MOVING && (bestTarget.releasePoint - m_drone.position).Length() <= 0.25 * conf.hitRadius) {
+    m_wasHit = true;
+    return;
+  }
+
+  // move
+  m_currentTime += conf.simTimeStep;
+  m_step += 1;
 }
 
 double MissionProcessor::getStopTime() const
@@ -139,33 +159,6 @@ double MissionProcessor::getStopTime() const
     default:
       return 0.0f;
   }
-}
-
-// required method ?
-bool MissionProcessor::hasNext()
-{
-  return m_currentProcessedTargetID < static_cast<int>(m_targetLoader->GetTargetCount());
-}
-
-// required method ?
-Target MissionProcessor::step()
-{
-  BallisticsSolverContext context{.targetIdx = m_currentProcessedTargetID,
-                                  .conf = *m_configLoader,
-                                  .drone = m_drone,
-                                  .targetLoader = *m_targetLoader,
-                                  .currentTime = m_currentTime,
-                                  .acceleration = m_acceleration};
-
-  auto target = m_ballisticSolver->Solve(context);
-
-  if (m_drone.currentTarget != UNDEFINED_TARGET_ID && m_drone.currentTarget != m_currentProcessedTargetID) {
-    target.totalTime += getStopTime();
-  }
-
-  m_currentProcessedTargetID++;
-
-  return target;
 }
 
 void MissionProcessor::adjustDroneStateToTarget(const Target& target)

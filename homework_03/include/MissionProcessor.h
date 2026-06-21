@@ -9,7 +9,7 @@ class MissionProcessor {
 public:
   MissionProcessor(IConfigLoaderPtr, ITargetLoaderPtr, IBallisticSolverPtr, ILoggerPtr);
 
-  ~MissionProcessor() = default;
+  ~MissionProcessor();
 
 private:
   MissionProcessor(const MissionProcessor&) = delete;
@@ -25,16 +25,12 @@ public:
 
   void Reset();
 
-  void ProcessMission();
+  bool HasNext();
+
+  void Step();
 
 private:
   double getStopTime() const;
-
-  // required method ?
-  bool hasNext();
-
-  // required method ?
-  Target step();
 
   void adjustDroneStateToTarget(const Target&);
 
@@ -52,10 +48,10 @@ private:
   std::string m_dataFolderPath{};
 
 private:
-  int m_currentProcessedTargetID{UNDEFINED_TARGET_ID};
   Drone m_drone{};
   size_t m_step{0};
   double m_currentTime{};
+  bool m_wasHit{};
 
   double m_acceleration{};
 };
