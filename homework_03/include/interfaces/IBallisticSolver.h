@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <string_view>
 
 #include "IConfigLoader.h"
 #include "ITargetLoader.h"
@@ -13,6 +14,7 @@ struct BallisticsSolverContext {
   const ITargetLoader& targetLoader;
   double currentTime{};
   double acceleration{};
+  std::string_view dataPath{};
 };
 
 class IBallisticSolver {

@@ -27,6 +27,8 @@ target_sources(
             include/providers/JsonTargetLoader.h
             include/providers/ProviderFactory.h
             include/solvers/AnalyticalSolver.h
+            include/solvers/TableSolver.h
+            include/solvers/CommonSolver.h
             include/solvers/SolverFactory.h
             include/loggers/JsonLogger.h
             include/loggers/LoggerFactory.h
@@ -42,6 +44,8 @@ target_sources(
             src/providers/JsonTargetLoader.cpp
             src/providers/ProviderFactory.cpp
             src/solvers/AnalyticalSolver.cpp
+            src/solvers/TableSolver.cpp
+            src/solvers/CommonSolver.cpp
             src/solvers/SolverFactory.cpp
             src/loggers/JsonLogger.cpp
             src/loggers/LoggerFactory.cpp
