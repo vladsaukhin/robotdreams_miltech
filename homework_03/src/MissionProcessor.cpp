@@ -115,8 +115,8 @@ void MissionProcessor::Step()
                                     .drone = m_drone,
                                     .targetLoader = *m_targetLoader,
                                     .currentTime = m_currentTime,
-                                    .acceleration = m_acceleration};
-
+                                    .acceleration = m_acceleration,
+                                    .dataPath = m_dataFolderPath};
     auto target = m_ballisticSolver->Solve(context);
 
     if (m_drone.currentTarget != UNDEFINED_TARGET_ID && m_drone.currentTarget != currentTargetIdx) {
