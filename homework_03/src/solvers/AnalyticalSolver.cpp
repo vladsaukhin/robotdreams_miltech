@@ -2,7 +2,7 @@
 
 #include <format>
 
-Target AnalyticalSolver::Solve(const BallisticsSolverContext& context)
+TargetFireParams AnalyticalSolver::Solve(const BallisticsSolverContext& context)
 {
   const auto& conf = context.conf.GetConfig();
 

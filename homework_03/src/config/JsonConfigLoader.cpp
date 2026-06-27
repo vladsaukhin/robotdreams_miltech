@@ -39,6 +39,15 @@ bool JsonConfigLoader::readConfig(std::string_view dataFolderPath)
     const auto& sim = j.at("simulation");
     m_config.simTimeStep = sim.at("timeStep").get<double>();
     m_config.hitRadius = sim.at("hitRadius").get<double>();
+    if (sim.contains("targetTimeStep")) {
+      m_config.targetTimeStep = sim.at("targetTimeStep").get<double>();
+    }
+    if (sim.contains("physicsTimeStep")) {
+      m_config.physicsTimeStep = sim.at("physicsTimeStep").get<double>();
+    }
+    if (sim.contains("timeScale")) {
+      m_config.timeScale = sim.at("timeScale").get<double>();
+    }
 
     m_config.arrayTimeStep = j.at("targetArrayTimeStep").get<double>();
   }
@@ -121,6 +130,22 @@ bool JsonConfigLoader::validateConfig()
   }
   if (m_config.turnThreshold < 0.0f) {
     std::cerr << "TurnThreshold must be non-negative.";
+    isValidResult &= false;
+  }
+  if (m_config.targetTimeStep < 0.0f) {
+    std::cerr << "TargetTimeStep must be non-negative.";
+    isValidResult &= false;
+  }
+  if (m_config.physicsTimeStep < 0.0f) {
+    std::cerr << "PhysicsTimeStep must be non-negative.";
+    isValidResult &= false;
+  }
+  if (m_config.timeScale < 0.0f) {
+    std::cerr << "TimeScale must be non-negative.";
+    isValidResult &= false;
+  }
+  if (m_config.physicsTimeStep >= m_config.simTimeStep) {
+    std::cerr << "PhysicsTimeStep must be less than SimTimeStep.";
     isValidResult &= false;
   }
   return isValidResult;

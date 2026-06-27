@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DroneAbstractions.h"
 #include "interfaces/ILogger.h"
 
 class JsonLogger : public ILogger {
@@ -14,7 +15,7 @@ private:
   JsonLogger& operator=(const JsonLogger&) = delete;
 
 public:
-  void RecordStep(const Drone&, const Target&) override;
+  void RecordStep(const DroneTelemetry&, const TargetFireParams&, int droneStateIdx) override;
 
   void DumpLog(std::string_view dataFolderPath, size_t lastStepIdx) override;
 

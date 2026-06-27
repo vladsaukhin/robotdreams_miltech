@@ -1,15 +1,12 @@
 #pragma once
 
 #include "Coords.hpp"
-#include "interfaces/IDroneState.h"
 
 constexpr int UNDEFINED_TARGET_ID{-1};
 
 struct Drone {
   Coord position{};
   double diraction{};
-
-  IDroneStatePtr state;
 
   int currentTarget{UNDEFINED_TARGET_ID};
   double targetDir{};
@@ -18,7 +15,17 @@ struct Drone {
   double turnRemaining{};
 };
 
-struct Target {
+struct DroneTelemetry {
+  Coord position{};
+  double diraction{};
+  double speed{};
+
+  int currentTarget{UNDEFINED_TARGET_ID};
+  double targetDir{};
+  double turnRemaining{};
+};
+
+struct TargetFireParams {
   int idx{UNDEFINED_TARGET_ID};
 
   double totalTime{std::numeric_limits<double>::max()};

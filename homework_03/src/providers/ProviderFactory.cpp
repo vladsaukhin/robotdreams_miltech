@@ -1,16 +1,17 @@
 #include "providers/ProviderFactory.h"
 
-#include <format>
-
-#include "providers/JsonTargetLoader.h"
-
-ITargetLoaderPtr CreateTargetLoader(TargetLoaderType type)
+ITargetProviderPtr CreateTargetProvider(TargetProviderConfig conf)
 {
-  switch (type) {
-    case TargetLoaderType::JSON_FILE:
-      return std::make_unique<JsonTargetLoader>();
-    default:
-      throw std::out_of_range(std::format("CreateTargetLoader factory cannot create a Loader for type {}",
-                                          static_cast<std::underlying_type_t<TargetLoaderType>>(type)));
-  }
+  return std::visit(
+    [](auto&& concreteConfig) -> ITargetProviderPtr {
+      using ConfigType = std::decay_t<decltype(concreteConfig)>;
+
+      if constexpr (std::is_same_v<ConfigType, JsonTargetProviderConfig>) {
+        return std::make_unique<JsonTargetProvider>(std::move(concreteConfig));
+      }
+      else if constexpr (std::is_same_v<ConfigType, ThreadSafeJsonTargetProviderConfig>) {
+        return std::make_unique<ThreadSafeJsonTargetProvider>(std::move(concreteConfig));
+      }
+    },
+    std::move(conf));
 }

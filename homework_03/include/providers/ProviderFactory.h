@@ -1,7 +1,10 @@
 #pragma once
 
-#include "interfaces/ITargetLoader.h"
+#include <variant>
 
-enum class TargetLoaderType { JSON_FILE };
+#include "providers/JsonTargetProvider.h"
+#include "providers/ThreadSafeJsonTargetProvider.h"
 
-ITargetLoaderPtr CreateTargetLoader(TargetLoaderType type);
+using TargetProviderConfig = std::variant<JsonTargetProviderConfig, ThreadSafeJsonTargetProviderConfig>;
+
+ITargetProviderPtr CreateTargetProvider(TargetProviderConfig);

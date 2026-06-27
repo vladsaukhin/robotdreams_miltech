@@ -5,14 +5,14 @@
 
 #include <nlohmann/json.hpp>
 
-void JsonLogger::RecordStep(const Drone& drone, const Target& target)
+void JsonLogger::RecordStep(const DroneTelemetry& telemetry, const TargetFireParams& target, int droneStateIdx)
 {
   SimStep step;
-  step.pos = drone.position;
-  step.direction = drone.diraction;
+  step.pos = telemetry.position;
+  step.direction = telemetry.diraction;
   // step.stateName = drone.state ? drone.state->GetName() : "Unknown";
-  step.state = drone.state ? drone.state->GetIdx() : -1;
-  step.targetIdx = drone.currentTarget;
+  step.state = droneStateIdx;
+  step.targetIdx = telemetry.currentTarget;
 
   step.dropPoint = target.releasePoint;
   step.aimPoint = target.aimPoint;

@@ -10,7 +10,7 @@ public:
   virtual ~ILogger() = default;
 
 public:
-  virtual void RecordStep(const Drone& drone, const Target& target) = 0;
+  virtual void RecordStep(const DroneTelemetry&, const TargetFireParams&, int droneStateIdx) = 0;
   virtual void DumpLog(std::string_view dataFolderPath, size_t lastStepIdx) = 0;
   virtual void Reset() = 0;
 };

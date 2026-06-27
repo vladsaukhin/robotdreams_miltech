@@ -83,7 +83,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/build/debug/homework_03/homework3",
       "args": [
-        "${workspaceFolder}/homework_03/data/elliptical/"
+        "${workspaceFolder}/homework_03/data/analytical/elliptical/"
       ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",

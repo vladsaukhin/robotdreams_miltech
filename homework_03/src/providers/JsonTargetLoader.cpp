@@ -5,24 +5,23 @@
 
 #include <nlohmann/json.hpp>
 
-bool JsonTargetLoader::readTargets(std::string_view dataFolderPath)
+void JsonTargetLoader::readTargets(std::string_view dataFolderPath)
 {
-  const auto targetsPath = dataFolderPath.data() + std::string("/targets.json");
-  std::ifstream input(targetsPath);
-  if (!input) {
-    std::cerr << std::format("Can't open {}", targetsPath) << std::endl;
-    return false;
-  }
-
   try {
+    const auto targetsPath = dataFolderPath.data() + std::string("/targets.json");
+    std::ifstream input(targetsPath);
+    if (!input) {
+      throw std::runtime_error(std::format("Can't open {}", targetsPath));
+    }
+
     nlohmann::json j = nlohmann::json::parse(input);
 
     if (!j.is_object()) {
       throw std::runtime_error("Root must be an object");
     }
 
-    m_targetCount = j.at("targetCount").get<size_t>();
-    m_targetTimeStepsCount = j.at("timeSteps").get<size_t>();
+    targetCount = j.at("targetCount").get<size_t>();
+    targetTimeStepsCount = j.at("timeSteps").get<size_t>();
 
     const auto& targets = j.at("targets");
 
@@ -30,14 +29,14 @@ bool JsonTargetLoader::readTargets(std::string_view dataFolderPath)
       throw std::runtime_error("'targets' must be array");
     }
 
-    if (targets.size() != m_targetCount) {
+    if (targets.size() != targetCount) {
       throw std::runtime_error("targets.size != targetCount");
     }
 
-    m_targetsInTime.reserve(m_targetCount);  // preallocate memory for targets
+    targetsInTime.reserve(targetCount);  // preallocate memory for targets
 
     ListOfCoords targetPositions;
-    targetPositions.reserve(m_targetTimeStepsCount);
+    targetPositions.reserve(targetTimeStepsCount);
 
     for (size_t i = 0; i < targets.size(); ++i) {
       const auto& target = targets.at(i);
@@ -53,7 +52,7 @@ bool JsonTargetLoader::readTargets(std::string_view dataFolderPath)
         throw std::runtime_error("positions must be array");
       }
 
-      if (positions.size() != m_targetTimeStepsCount) {
+      if (positions.size() != targetTimeStepsCount) {
         throw std::runtime_error("positions.size != timeSteps");
       }
 
@@ -75,13 +74,10 @@ bool JsonTargetLoader::readTargets(std::string_view dataFolderPath)
         targetPositions.push_back({x, y});
       }
 
-      m_targetsInTime.push_back(std::move(targetPositions));  // resets targetPositions
+      targetsInTime.push_back(std::move(targetPositions));  // resets targetPositions
     }
   }
   catch (const std::exception& e) {
-    std::cerr << "JsonTargetProvider error: " << e.what() << '\n';
-    return false;
+    throw std::runtime_error("JsonTargetLoader error: " + std::string(e.what()));
   }
-
-  return true;
 }
