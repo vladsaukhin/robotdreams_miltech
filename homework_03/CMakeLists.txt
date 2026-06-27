@@ -16,8 +16,9 @@ target_sources(
             include/DroneConfig.h
             include/DroneAbstractions.h
             include/MissionProcessor.h
+            include/DronePhysics.h
             include/interfaces/IConfigLoader.h
-            include/interfaces/ITargetLoader.h
+            include/interfaces/ITargetProvider.h
             include/interfaces/IBallisticSolver.h
             include/interfaces/ILogger.h
             include/interfaces/IDroneState.h
@@ -25,6 +26,8 @@ target_sources(
             include/config/JsonConfigLoader.h
             include/config/ConfigFactory.h
             include/providers/JsonTargetLoader.h
+            include/providers/JsonTargetProvider.h
+            include/providers/ThreadSafeJsonTargetProvider.h
             include/providers/ProviderFactory.h
             include/solvers/AnalyticalSolver.h
             include/solvers/TableSolver.h
@@ -39,9 +42,12 @@ target_sources(
             include/droneStates/StateTurning.h
             src/Utils.cpp
             src/MissionProcessor.cpp
+            src/DronePhysics.cpp
             src/config/JsonConfigLoader.cpp
             src/config/ConfigFactory.cpp
             src/providers/JsonTargetLoader.cpp
+            src/providers/JsonTargetProvider.cpp
+            src/providers/ThreadSafeJsonTargetProvider.cpp
             src/providers/ProviderFactory.cpp
             src/solvers/AnalyticalSolver.cpp
             src/solvers/TableSolver.cpp

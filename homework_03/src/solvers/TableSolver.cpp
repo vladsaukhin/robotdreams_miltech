@@ -159,7 +159,7 @@ TableSolver::TableSolver() = default;
 
 TableSolver::~TableSolver() = default;
 
-Target TableSolver::Solve(const BallisticsSolverContext& context)
+TargetFireParams TableSolver::Solve(const BallisticsSolverContext& context)
 {
   if (!m_ballisticTable) {  // load only once
     m_ballisticTable = std::make_unique<BallisticTable>();

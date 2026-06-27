@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DroneAbstractions.h"
 #include "interfaces/IBallisticSolver.h"
 
 class CommonSolver {
@@ -17,17 +18,13 @@ protected:
   virtual bool solveCommonBallistics(const DroneConfig&) = 0;
 
 protected:
-  Target solveTargetFireParams(const BallisticsSolverContext& context);
-
-  Coord getInterpolatedTarget(const ITargetLoader&, size_t targetIdx, double arrayTimeStep, double time);
-
-  Coord getTargetVelocity(size_t targetIdx, const DroneConfig&, const ITargetLoader&, double currentTime);
+  TargetFireParams solveTargetFireParams(const BallisticsSolverContext& context);
 
   Coord getFirePoint(const Coord& dronPos, const Coord& targetPos);
 
   double computeTravelTime(double distance, double acceleration, double currentSpeed, double maxSpeed);
 
-  Coord getAimPoint(const Drone&);
+  Coord getAimPoint(const DroneTelemetry&);
 
 protected:
   double m_timeOfFlight{};

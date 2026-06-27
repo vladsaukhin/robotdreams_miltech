@@ -8,10 +8,10 @@
 IDroneStatePtr StateMoving::Execute(DroneStateContext& ctx)
 {
   // Update position
-  ctx.MoveDrone(ctx.drone.speed);
-  m_stopTime = ctx.drone.speed / ctx.acceleration;
+  ctx.MoveDrone(ctx.telemetry.speed);
+  m_stopTime = ctx.telemetry.speed / ctx.acceleration;
 
-  const double deltaAngle = std::fabs(AngleDiff(ctx.drone.diraction, ctx.drone.targetDir));
+  const double deltaAngle = std::fabs(AngleDiff(ctx.telemetry.diraction, ctx.telemetry.targetDir));
   if (std::fabs(deltaAngle) > ctx.cfg.turnThreshold) {
     return std::make_unique<StateDecelerating>();
   }

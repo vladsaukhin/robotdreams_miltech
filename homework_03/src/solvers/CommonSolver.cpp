@@ -1,25 +1,23 @@
 #include "solvers/CommonSolver.h"
+#include "DroneAbstractions.h"
 
-Target CommonSolver::solveTargetFireParams(const BallisticsSolverContext& context)
+TargetFireParams CommonSolver::solveTargetFireParams(const BallisticsSolverContext& context)
 {
   const auto& conf = context.conf.GetConfig();
 
-  Target target{.idx = context.targetIdx};
+  TargetFireParams target{.idx = context.targetIdx};
 
-  const auto& drone = context.drone;
+  const auto& drone = context.telemetry;
 
-  const auto targetVelocity = getTargetVelocity(target.idx, conf, context.targetLoader, context.currentTime);
-
-  // get current position from targets file
-  const auto currentPos = getInterpolatedTarget(context.targetLoader, target.idx, conf.arrayTimeStep, context.currentTime);
+  const auto targetState = context.targetProvider.GetTargetState(target.idx);
 
   // get fire point based on current target position
-  const auto currentFirePoint = getFirePoint(drone.position, currentPos);
+  const auto currentFirePoint = getFirePoint(drone.position, targetState.position);
 
   double totalTime =
     computeTravelTime((currentFirePoint - drone.position).Length(), context.acceleration, drone.speed, conf.attackSpeed) + m_timeOfFlight;
 
-  const auto predictedPos = currentPos + (targetVelocity * totalTime);
+  const auto predictedPos = targetState.position + (targetState.velocity * totalTime);
 
   const auto predictedFirePoint = getFirePoint(drone.position, predictedPos);
 
@@ -34,28 +32,6 @@ Target CommonSolver::solveTargetFireParams(const BallisticsSolverContext& contex
   target.aimPoint = getAimPoint(drone);
 
   return target;
-}
-
-Coord CommonSolver::getInterpolatedTarget(const ITargetLoader& targetsLoader, size_t targetIdx, double arrayTimeStep, double time)
-{
-  const double samplePos = time / arrayTimeStep;
-  const int rawIdx = static_cast<int>(std::floor(samplePos));
-  const int idx = rawIdx % targetsLoader.GetTargetTimeStepsCount();
-  const int next = (idx + 1) % targetsLoader.GetTargetTimeStepsCount();
-  const double frac = samplePos - std::floor(samplePos);
-
-  const auto& targetTimes = targetsLoader.GetTargetTimes(targetIdx);
-  const double x = targetTimes[idx].x + (targetTimes[next].x - targetTimes[idx].x) * frac;
-  const double y = targetTimes[idx].y + (targetTimes[next].y - targetTimes[idx].y) * frac;
-  return {x, y};
-}
-
-Coord CommonSolver::getTargetVelocity(size_t targetIdx, const DroneConfig& conf, const ITargetLoader& targetsLoader, double currentTime)
-{
-  const double dt = conf.simTimeStep;
-  const auto p0 = getInterpolatedTarget(targetsLoader, targetIdx, conf.arrayTimeStep, currentTime);
-  const auto p1 = getInterpolatedTarget(targetsLoader, targetIdx, conf.arrayTimeStep, currentTime + dt);
-  return {(p1.x - p0.x) / dt, (p1.y - p0.y) / dt};
 }
 
 Coord CommonSolver::getFirePoint(const Coord& dronPos, const Coord& targetPos)
@@ -90,7 +66,7 @@ double CommonSolver::computeTravelTime(double distance, double acceleration, dou
   return timeToMaxSpeed + cruiseTime;
 }
 
-Coord CommonSolver::getAimPoint(const Drone& drone)
+Coord CommonSolver::getAimPoint(const DroneTelemetry& drone)
 {
   Coord dir{std::cos(drone.diraction), std::sin(drone.diraction)};
 

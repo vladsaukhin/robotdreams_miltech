@@ -1,13 +1,16 @@
 #pragma once
 
 #include "interfaces/IConfigLoader.h"
-#include "interfaces/ITargetLoader.h"
+#include "interfaces/ITargetProvider.h"
 #include "interfaces/IBallisticSolver.h"
 #include "interfaces/ILogger.h"
+#include "interfaces/IDroneState.h"
+
+#include "DronePhysics.h"
 
 class MissionProcessor {
 public:
-  MissionProcessor(IConfigLoaderPtr, ITargetLoaderPtr, IBallisticSolverPtr, ILoggerPtr);
+  MissionProcessor(IConfigLoaderPtr, ITargetProviderPtr, IBallisticSolverPtr, ILoggerPtr);
 
   ~MissionProcessor();
 
@@ -23,6 +26,8 @@ public:
 
   void ChangeSolver(IBallisticSolverPtr);
 
+  void AutoRun();
+
   void Reset();
 
   bool HasNext();
@@ -30,9 +35,11 @@ public:
   void Step();
 
 private:
+  void runWorker();
+
   double getStopTime() const;
 
-  void adjustDroneStateToTarget(const Target&);
+  void adjustDroneStateToTarget(const TargetFireParams&);
 
   void changeDronePosition(double dt);
 
@@ -40,18 +47,24 @@ private:
 
 private:
   IConfigLoaderPtr m_configLoader;
-  ITargetLoaderPtr m_targetLoader;
+  ITargetProviderPtr m_targetProvider;
   IBallisticSolverPtr m_ballisticSolver;
   ILoggerPtr m_logger;
 
-  bool m_initialized{false};
   std::string m_dataFolderPath{};
 
 private:
-  Drone m_drone{};
-  size_t m_step{0};
-  double m_currentTime{};
-  bool m_wasHit{};
+  DronePhysics m_drone;
 
   double m_acceleration{};
+
+private:
+  bool m_initialized{false};
+  bool m_wasHit{false};
+  std::thread m_worker;
+
+  IDroneStatePtr m_droneState{};
+
+  size_t m_step{0};
+  double m_currentTime{};
 };

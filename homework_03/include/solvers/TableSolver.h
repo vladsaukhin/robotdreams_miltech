@@ -17,7 +17,7 @@ private:
   TableSolver& operator=(const TableSolver&) = delete;
 
 public:
-  Target Solve(const BallisticsSolverContext&) override;
+  TargetFireParams Solve(const BallisticsSolverContext&) override;
 
 private:
   bool solveCommonBallistics(const DroneConfig&) override;

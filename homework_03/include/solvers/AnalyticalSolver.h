@@ -15,7 +15,7 @@ private:
   AnalyticalSolver& operator=(const AnalyticalSolver&) = delete;
 
 public:
-  Target Solve(const BallisticsSolverContext& context) override;
+  TargetFireParams Solve(const BallisticsSolverContext& context) override;
 
 private:
   bool solveCommonBallistics(const DroneConfig&) override;

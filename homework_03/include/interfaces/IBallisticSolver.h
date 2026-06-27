@@ -4,14 +4,14 @@
 #include <string_view>
 
 #include "IConfigLoader.h"
-#include "ITargetLoader.h"
+#include "ITargetProvider.h"
 #include "DroneAbstractions.h"
 
 struct BallisticsSolverContext {
   int targetIdx{UNDEFINED_TARGET_ID};
   const IConfigLoader& conf;
-  const Drone& drone;
-  const ITargetLoader& targetLoader;
+  const DroneTelemetry& telemetry;
+  ITargetProvider& targetProvider;
   double currentTime{};
   double acceleration{};
   std::string_view dataPath{};
@@ -22,7 +22,7 @@ public:
   virtual ~IBallisticSolver() = default;
 
 public:
-  virtual Target Solve(const BallisticsSolverContext&) = 0;
+  virtual TargetFireParams Solve(const BallisticsSolverContext&) = 0;
 };
 
 using IBallisticSolverPtr = std::unique_ptr<IBallisticSolver>;
