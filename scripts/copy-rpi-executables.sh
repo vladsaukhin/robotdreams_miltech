@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BUILD_DIR="${1:-build/aarch64-debug}"
+BUILD_DIR="${1:-../build/aarch64-debug}"
 REMOTE_HOST="${REMOTE_HOST:-rpi4vs}"
 REMOTE_DIR="${REMOTE_DIR:-/home/vsaukhin54/rpi-run/}"
 
