@@ -1,5 +1,9 @@
 add_executable(ballistics-test)
 
+if(NOT CMAKE_CROSSCOMPILING)
+    find_package(GTest REQUIRED)
+endif()
+
 target_sources(ballistics-test PRIVATE ballistics_tests.cpp input_params_tests.cpp)
 
 target_link_libraries(ballistics-test PRIVATE ballistics GTest::gmock_main)

@@ -7,6 +7,7 @@
       // Default build task: Ctrl+Shift+B запускає debug preset, потім build.
       "label": "CMake: configure and build",
       "type": "shell",
+      //"command": "cmake --preset aarch64-debug && cmake --build --preset aarch64-debug",
       "command": "cmake --preset debug && cmake --build --preset debug",
       "group": {
         "kind": "build",
