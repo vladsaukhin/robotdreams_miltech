@@ -42,3 +42,8 @@ libgmock-dev
 # Синхронізація білда на малині
 rsync
 file
+gpiod
+libgpiod-dev
+socat
+i2c-tools
+can-utils
