@@ -10,7 +10,8 @@ void JsonLogger::RecordStep(const Drone& drone, const Target& target)
   SimStep step;
   step.pos = drone.position;
   step.direction = drone.diraction;
-  step.state = drone.state;
+  // step.stateName = drone.state ? drone.state->GetName() : "Unknown";
+  step.state = drone.state ? drone.state->GetIdx() : -1;
   step.targetIdx = drone.currentTarget;
 
   step.dropPoint = target.releasePoint;
@@ -40,7 +41,8 @@ void JsonLogger::DumpLog(std::string_view dataFolderPath, size_t lastStepIdx)
       nlohmann::json step;
       step["position"] = {{"x", logStep.pos.x}, {"y", logStep.pos.y}};
       step["direction"] = logStep.direction;
-      step["state"] = static_cast<int>(logStep.state);
+      // step["state"] = logStep.stateName;
+      step["state"] = logStep.state;
       step["targetIndex"] = logStep.targetIdx;
       step["dropPoint"] = {{"x", logStep.dropPoint.x}, {"y", logStep.dropPoint.y}};
       step["aimPoint"] = {{"x", logStep.aimPoint.x}, {"y", logStep.aimPoint.y}};

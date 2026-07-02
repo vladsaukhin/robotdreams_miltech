@@ -1,8 +1,6 @@
 #include <exception>
 #include <iostream>
-#include <stdexcept>
 #include <string_view>
-#include <format>
 
 #include "config/ConfigFactory.h"
 #include "providers/ProviderFactory.h"
@@ -23,7 +21,7 @@ int main(int argc, char** argv)
   auto configLoader = CreateLoader(ConfigLoaderType::JSON_FILE);
   auto targetLoader = CreateTargetLoader(TargetLoaderType::JSON_FILE);
   auto logger = CreateLogger(LoggerType::JSON_FILE);
-  auto solver = CreateSolver(SolverType::ANALYTICAL);
+  auto solver = CreateSolver(SolverType::TABLE);
 
   try {
     MissionProcessor missionProcessor(std::move(configLoader), std::move(targetLoader), std::move(solver), std::move(logger));

@@ -1,19 +1,19 @@
 #pragma once
 
 #include "Coords.hpp"
+#include "interfaces/IDroneState.h"
 
 constexpr int UNDEFINED_TARGET_ID{-1};
-
-enum DroneState : uint8_t { STOPPED, ACCELERATING, DECELERATING, TURNING, MOVING };
 
 struct Drone {
   Coord position{};
   double diraction{};
 
+  IDroneStatePtr state;
+
   int currentTarget{UNDEFINED_TARGET_ID};
   double targetDir{};
 
-  DroneState state{STOPPED};
   double speed{};
   double turnRemaining{};
 };
